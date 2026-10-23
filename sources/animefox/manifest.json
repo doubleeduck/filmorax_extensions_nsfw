@@ -50,6 +50,7 @@
         "authOrigins": ["https://www.animefox.org", "https://animefox.org"],
         "imageOrigins": ["https://animefox.org"],
         "streamOrigins": [
+          "https://solodcdn.com",
           "https://tentacl.su",
           "https://kodik-storage.com",
           "https://kodik.info",

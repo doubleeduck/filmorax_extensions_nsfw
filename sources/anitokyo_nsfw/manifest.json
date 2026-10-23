@@ -46,6 +46,8 @@
         ],
         "imageOrigins": ["https://anitokyo.tv", "https://picmap.top"],
         "streamOrigins": [
+          "https://solodcdn.com",
+          "https://storage-hencdn.com",
           "https://kodik-storage.com",
           "https://kodik.cc",
           "https://kodik.info",

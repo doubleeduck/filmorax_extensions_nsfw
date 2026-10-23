@@ -9,6 +9,14 @@ export function releaseVersion(value) {
     )
   )
     throw Error('Expected a SemVer release version without a v prefix or build metadata');
+  // Match the host's signed 64-bit SemVer parser, not JavaScript's float range.
+  if (
+    value
+      .split('-')[0]
+      .split('.')
+      .some((part) => BigInt(part) > 9223372036854775807n)
+  )
+    throw Error('Release version exceeds the host integer range');
   return value;
 }
 

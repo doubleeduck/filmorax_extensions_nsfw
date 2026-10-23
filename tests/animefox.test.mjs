@@ -5,6 +5,18 @@ import { decodeSettings } from '../sources/animefox/src/aa.mjs';
 import { serializedFilters, slug } from '../sources/animefox/src/index.mjs';
 import { createTentacl, decryptResponse } from '../sources/animefox/src/tentacl.mjs';
 import { pbkdf2Sync, createCipheriv, createDecipheriv } from 'node:crypto';
+
+test('Tentacl declares the native HLS compatibility quirk instead of relying on Dart host names', async () => {
+  const resolver = createTentacl({});
+  assert.equal(
+    (await resolver.resolve('https://x.tentacl.su/hls/plain.m3u8')).variants[0].requiresHlsProxy,
+    true,
+  );
+  assert.equal(
+    (await resolver.resolve('https://x.tentacl.su/native.mp4')).variants[0].requiresHlsProxy,
+    false,
+  );
+});
 test('AnimeFox AA decoding produces only settings data without evaluating page JavaScript', () => {
   assert.deepEqual(
     decodeSettings(aaFixture('baseURL="https://x.tentacl.su/";ps="token";ts=123;enabled=true;')),

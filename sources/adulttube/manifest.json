@@ -17,7 +17,7 @@
       "description": "source.description.adulttube",
       "language": "international",
       "category": "movies",
-      "baseUrl": "https://wow.mat6tube.com",
+      "baseUrl": "https://hot.mat6tube.com",
       "isNsfw": true,
       "supportsTorrentSearch": false,
       "capabilities": [
@@ -32,7 +32,12 @@
       ],
       "parameters": {},
       "network": {
-        "origins": ["https://wow.mat6tube.com", "https://nmcorp.video"],
+        "origins": [
+          "https://mat6tube.com",
+          "https://wow.mat6tube.com",
+          "https://hot.mat6tube.com",
+          "https://nmcorp.video"
+        ],
         "imageOrigins": [
           "https://mat6tube.com",
           "https://noodlemagazine.com",
@@ -50,32 +55,32 @@
         ],
         "cookieDefaults": [
           {
-            "origin": "https://wow.mat6tube.com",
+            "origin": "https://hot.mat6tube.com",
             "name": "age_verification",
             "value": "1"
           },
           {
-            "origin": "https://wow.mat6tube.com",
+            "origin": "https://hot.mat6tube.com",
             "name": "age",
             "value": "1"
           },
           {
-            "origin": "https://wow.mat6tube.com",
+            "origin": "https://hot.mat6tube.com",
             "name": "adult",
             "value": "1"
           },
           {
-            "origin": "https://wow.mat6tube.com",
+            "origin": "https://hot.mat6tube.com",
             "name": "age_verified",
             "value": "1"
           },
           {
-            "origin": "https://wow.mat6tube.com",
+            "origin": "https://hot.mat6tube.com",
             "name": "is_adult",
             "value": "1"
           },
           {
-            "origin": "https://wow.mat6tube.com",
+            "origin": "https://hot.mat6tube.com",
             "name": "agree",
             "value": "1"
           }
@@ -83,7 +88,7 @@
         "methods": ["GET", "POST"],
         "maxConcurrentRequests": 3,
         "allowUserBaseUrl": true,
-        "userBaseUrlUses": ["image"],
+        "userBaseUrlUses": ["http", "image"],
         "allowSubdomains": true
       },
       "presentation": {
@@ -103,7 +108,12 @@
       "id": "adulttube.streams",
       "sourceId": "adulttube",
       "schemes": ["https"],
-      "origins": ["https://wow.mat6tube.com", "https://nmcorp.video"]
+      "origins": [
+        "https://mat6tube.com",
+        "https://wow.mat6tube.com",
+        "https://hot.mat6tube.com",
+        "https://nmcorp.video"
+      ]
     }
   ],
   "contributions": {

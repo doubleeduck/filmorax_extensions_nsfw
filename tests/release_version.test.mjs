@@ -15,6 +15,8 @@ test('release versions cannot inject shell arguments, hide leading zeros or disa
     '1.0',
     '1.0.0+other',
     '1.0.0-01',
+    '9223372036854775808.0.0',
+    '1.99999999999999999999999.0',
     '--help',
     '1.0.0; echo private',
     '1.0.0\n',

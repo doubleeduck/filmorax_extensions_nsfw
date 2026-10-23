@@ -44,7 +44,7 @@
         "methods": ["GET"],
         "maxConcurrentRequests": 4,
         "allowUserBaseUrl": true,
-        "userBaseUrlUses": ["image"],
+        "userBaseUrlUses": ["http", "image"],
         "allowSubdomains": true
       },
       "presentation": {

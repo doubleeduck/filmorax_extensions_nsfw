@@ -1,10 +1,8 @@
 # FilmoraX NSFW Extensions
 
 Самостоятельный release-репозиторий расширений FilmoraX. Канал: **nsfw**.
-Источников: 7. IDs: adulttube, animefox, anitokyo_nsfw, eporner, porno365, watchhentai, xhamster.
-TorrServer и обычных источников в этом канале нет.
-Никакие Dart/APK/native-плагины не скачиваются: источники — подписанные JS-пакеты;
-TorrServer — декларативное открытие app-owned функции хоста, без WebView-плеера.
+Источников: 7. 
+источники — подписанные JS-пакеты;
 
 ## Проверки и разработка
 

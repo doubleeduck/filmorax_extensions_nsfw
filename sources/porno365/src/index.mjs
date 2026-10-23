@@ -113,7 +113,7 @@ export default function createSource(context) {
         headers: { Accept: 'text/html', Referer: base + '/', Origin: base },
       });
     } catch (error) {
-      if (error?.code !== 'network_error' || base === context.baseUrl) throw error;
+      if (error?.code !== 'network' || base === context.baseUrl) throw error;
       response = await context.http.request({
         method: 'GET',
         url: context.baseUrl + path,

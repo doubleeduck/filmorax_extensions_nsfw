@@ -7,7 +7,7 @@
     "resolvers/collaps.mjs": "09e35141a4db855ee7bd53d40e6ab52421178388cfb111e3cae1f74a463d36a7",
     "resolvers/kodik.mjs": "72da7387c6dc49394d1878a9045a42c7c20ff0bd7c009d2e2bc8484b08a53107",
     "sdk/bootstrap.mjs": "077fe5f34c5b1d3619b999286d788c9e9ca271306a9cba9da7838a5425e63383",
-    "sdk/index.d.ts": "464a143dcc58888c0045b122f272cb8081c70fbf5f7bb716c1297c3aa1593b21",
+    "sdk/index.d.ts": "176efb40fb54588f8e1dc9acf59a0f2c55124e6b95b51221e306f26ad09dfb0b",
     "sdk/literal.mjs": "5633cffb775bac3470c349fd95b7df70a4dc083210e65dcfc6dfedc455ba89fd",
     "sdk/utf8.mjs": "1209c3a8699978e191c0f9ec266fb000a89e6d0de573e2f72ac2807e7fc6f081",
     "sdk/video.mjs": "d2128d4100459eff0f8798a2476be7ad2ddbcdbef9fa6cfd50bf5a526325389d",
@@ -16,7 +16,7 @@
     "tools/package_format.mjs": "e32977ec6a711752827915303953e12b53d572bec7cea418eb03c05aa6437f05",
     "tools/protected_release.mjs": "3f88ba95af5ad9e2b1c868b459911e5c772a6a15b77752ebe7ce6410df5e8b31",
     "tools/release.mjs": "5ced239c0a5525bdd4011f9a9a0a95289acc8315edbaae2e67fa22837f3c308b",
-    "tools/release_version.mjs": "37d9c4fb801b621d6e31f32b76cc0264a2630d2a2ae4368d2de1fa5395dcb453",
+    "tools/release_version.mjs": "62cb197536b9477b775dca600edb2dfee4b3d75142a7362817624583f0abb10b",
     "tools/repository_config.mjs": "323395d1732294e1f5765da1e45fe46fc79e30ca7eb93a67edaa4581fab810aa",
     "tools/verify_release.mjs": "639428a69f5322392a13f2b4fd265c020222a6b7c18e4094223004949898bdc0"
   }

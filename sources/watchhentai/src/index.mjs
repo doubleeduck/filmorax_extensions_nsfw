@@ -21,8 +21,18 @@ const linked = (selector) => ({
   fields: { url: { attr: 'href' }, name: { text: true } },
 });
 const year = (value) => Number(/(?:19|20)\d{2}/.exec(text(value))?.[0]) || null;
-const absolute = (value, base) =>
-  text(value) && !text(value).startsWith('data:') ? new URL(value, base).href : '';
+const absolute = (value, base) => {
+  if (!text(value) || text(value).startsWith('data:')) return '';
+  const uri = new URL(value, base);
+  // The current HTTPS site still emits its own legacy HTTP poster links.
+  // Upgrade only that known site, not arbitrary third-party image origins.
+  if (
+    uri.protocol === 'http:' &&
+    (uri.hostname === new URL(base).hostname || uri.hostname === 'watchhentai.net')
+  )
+    uri.protocol = 'https:';
+  return uri.href;
+};
 export function seriesPath(value) {
   if (!text(value)) return '';
   try {

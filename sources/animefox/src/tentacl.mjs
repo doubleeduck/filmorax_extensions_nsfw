@@ -17,6 +17,15 @@ const critical = (error) =>
     error?.code,
   );
 const quality = (path) => /(\d{3,4})p/.exec(path)?.[1] ?? 'source';
+function nativeVariant(variant) {
+  const host = new URL(variant.url).hostname;
+  return {
+    ...variant,
+    requiresHlsProxy:
+      (host === 'x.tentacl.su' || host.endsWith('.tentacl.su')) &&
+      /mpegurl|hls/i.test(variant.mimeType),
+  };
+}
 export async function decryptResponse(context, value, password) {
   value = text(value);
   if (value.startsWith('{')) return value;
@@ -221,7 +230,7 @@ export function createTentacl(context) {
     const expanded = [];
     for (const variant of dedupe(variants, (v) => `${v.quality}:${v.url}`))
       expanded.push(...(await expand(variant)));
-    return dedupe(expanded, (v) => `${v.quality}:${v.url}`);
+    return dedupe(expanded, (v) => `${v.quality}:${v.url}`).map(nativeVariant);
   }
   async function resolve(url, referer, serverId = '') {
     const uri = new URL(url);
@@ -231,12 +240,12 @@ export function createTentacl(context) {
     )
       return {
         variants: [
-          {
+          nativeVariant({
             url,
             quality: quality(uri.pathname),
             mimeType: uri.pathname.endsWith('.mp4') ? 'video/mp4' : 'application/vnd.apple.mpegurl',
             headers: getHeaders(url.split('?')[0]),
-          },
+          }),
         ],
       };
     const html = await page(url, referer),

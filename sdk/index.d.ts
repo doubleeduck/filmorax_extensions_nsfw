@@ -171,6 +171,8 @@ export interface Stream {
     quality: string;
     /** Renew a short-lived signed URL before the user's first Play action. */
     refreshBeforePlay?: boolean;
+    /** Opt in to the host's range-free HLS segment compatibility transport. */
+    requiresHlsProxy?: boolean;
     url: string;
     mimeType:
       | 'video/mp4'
