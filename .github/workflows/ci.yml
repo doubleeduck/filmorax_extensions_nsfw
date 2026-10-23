@@ -1,0 +1,29 @@
+name: FilmoraX extension checks
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6, same pin as MangaLaunch
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit
+      - run: npm rebuild esbuild
+      - run: npm run format:check
+      - run: npm test
+      - name: Package and independently verify CI-only artifacts
+        run: node tools/ci_release.mjs
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: development-only-${{ github.event.repository.name }}
+          path: dist/ci-release/*
+          retention-days: 7

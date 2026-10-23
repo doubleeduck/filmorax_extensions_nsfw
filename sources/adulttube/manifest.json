@@ -1,0 +1,113 @@
+{
+  "schemaVersion": 1,
+  "sourceApiVersion": 1,
+  "minRuntimeAbi": 1,
+  "id": "filmorax.source.adulttube",
+  "name": "AdultTube",
+  "description": "AdultTube search, paged results, metadata and native streams",
+  "version": "1.0.0",
+  "minAppVersion": "1.0.0",
+  "publisherKeyId": "filmorax.sources",
+  "entrypoint": "src/index.mjs",
+  "permissions": ["http", "html", "settings"],
+  "sources": [
+    {
+      "id": "adulttube",
+      "name": "AdultTube",
+      "description": "source.description.adulttube",
+      "language": "international",
+      "category": "movies",
+      "baseUrl": "https://wow.mat6tube.com",
+      "isNsfw": true,
+      "supportsTorrentSearch": false,
+      "capabilities": [
+        "search",
+        "filters",
+        "metadata",
+        "playbackGroups",
+        "recommendations",
+        "streams",
+        "headers",
+        "mirrors"
+      ],
+      "parameters": {},
+      "network": {
+        "origins": ["https://wow.mat6tube.com", "https://nmcorp.video"],
+        "imageOrigins": [
+          "https://mat6tube.com",
+          "https://noodlemagazine.com",
+          "https://userapi.com",
+          "https://vkuser.net",
+          "https://mycdn.me"
+        ],
+        "streamOrigins": [
+          "https://noodlemagazine.com",
+          "https://pvvstream.pro",
+          "https://okcdn.ru",
+          "https://mycdn.me",
+          "https://vkuser.net",
+          "https://userapi.com"
+        ],
+        "cookieDefaults": [
+          {
+            "origin": "https://wow.mat6tube.com",
+            "name": "age_verification",
+            "value": "1"
+          },
+          {
+            "origin": "https://wow.mat6tube.com",
+            "name": "age",
+            "value": "1"
+          },
+          {
+            "origin": "https://wow.mat6tube.com",
+            "name": "adult",
+            "value": "1"
+          },
+          {
+            "origin": "https://wow.mat6tube.com",
+            "name": "age_verified",
+            "value": "1"
+          },
+          {
+            "origin": "https://wow.mat6tube.com",
+            "name": "is_adult",
+            "value": "1"
+          },
+          {
+            "origin": "https://wow.mat6tube.com",
+            "name": "agree",
+            "value": "1"
+          }
+        ],
+        "methods": ["GET", "POST"],
+        "maxConcurrentRequests": 3,
+        "allowUserBaseUrl": true,
+        "userBaseUrlUses": ["image"],
+        "allowSubdomains": true
+      },
+      "presentation": {
+        "icon": "assets/icon.png",
+        "directPlayback": true,
+        "artworkLayout": "landscape",
+        "imageHeaders": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+          "Accept": "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.9,ru;q=0.7"
+        }
+      }
+    }
+  ],
+  "resolvers": [
+    {
+      "id": "adulttube.streams",
+      "sourceId": "adulttube",
+      "schemes": ["https"],
+      "origins": ["https://wow.mat6tube.com", "https://nmcorp.video"]
+    }
+  ],
+  "contributions": {
+    "hostFeatures": []
+  },
+  "files": {}
+}

@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "name": "FilmoraX NSFW Extensions",
+  "channel": "nsfw",
+  "publisherKeyId": "filmorax.sources.nsfw",
+  "sourceIds": [
+    "adulttube",
+    "animefox",
+    "anitokyo_nsfw",
+    "eporner",
+    "porno365",
+    "watchhentai",
+    "xhamster"
+  ],
+  "hostFeatures": []
+}

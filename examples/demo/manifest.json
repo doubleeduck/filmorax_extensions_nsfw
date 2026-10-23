@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 1,
+  "sourceApiVersion": 1,
+  "minRuntimeAbi": 1,
+  "id": "example.source.demo",
+  "name": "SDK Demo",
+  "description": "Offline fixture demonstrating the source API; contains no real media",
+  "version": "1.0.0",
+  "minAppVersion": "1.0.0",
+  "publisherKeyId": "example.publisher",
+  "entrypoint": "src/index.mjs",
+  "permissions": ["http"],
+  "sources": [
+    {
+      "id": "example.demo",
+      "name": "SDK Demo",
+      "description": "Offline developer fixture, not a real video service",
+      "language": "english",
+      "category": "movies",
+      "baseUrl": "https://catalog.example.org",
+      "isNsfw": false,
+      "supportsTorrentSearch": false,
+      "capabilities": ["catalog", "search", "filters", "metadata", "playbackGroups", "streams"],
+      "parameters": {},
+      "presentation": { "directPlayback": false, "artworkLayout": "portrait" },
+      "network": {
+        "origins": ["https://catalog.example.org"],
+        "imageOrigins": ["https://images.example.org"],
+        "streamOrigins": ["https://video.example.org"],
+        "methods": ["GET"],
+        "maxConcurrentRequests": 2
+      }
+    }
+  ],
+  "resolvers": [
+    { "id": "example.demo.native", "sourceId": "example.demo", "schemes": ["demo"], "origins": [] }
+  ],
+  "contributions": { "hostFeatures": [] },
+  "files": {}
+}

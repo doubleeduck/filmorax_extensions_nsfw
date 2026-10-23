@@ -1,0 +1,84 @@
+{
+  "schemaVersion": 1,
+  "sourceApiVersion": 1,
+  "minRuntimeAbi": 1,
+  "id": "filmorax.source.anitokyo_nsfw",
+  "name": "Anitokyo (NSFW)",
+  "description": "Anitokyo catalogue, filters and native video providers",
+  "version": "1.0.0",
+  "minAppVersion": "1.0.0",
+  "publisherKeyId": "filmorax.sources",
+  "entrypoint": "src/index.mjs",
+  "permissions": ["http", "html", "settings"],
+  "sources": [
+    {
+      "id": "anitokyo_nsfw",
+      "name": "Anitokyo (NSFW)",
+      "description": "source.description.anitokyo_nsfw",
+      "language": "russian",
+      "category": "anime",
+      "baseUrl": "https://anitokyo.tv",
+      "isNsfw": true,
+      "supportsTorrentSearch": true,
+      "capabilities": [
+        "catalog",
+        "search",
+        "filters",
+        "metadata",
+        "playbackGroups",
+        "recommendations",
+        "streams",
+        "headers"
+      ],
+      "parameters": {
+        "isNsfw": "true"
+      },
+      "network": {
+        "origins": [
+          "https://anitokyo.tv",
+          "https://kodik.info",
+          "https://kodikplayer.com",
+          "https://kodik.cc",
+          "https://kodik.video",
+          "https://kodik.biz",
+          "https://aniqit.com",
+          "https://hencdn.top"
+        ],
+        "imageOrigins": ["https://anitokyo.tv", "https://picmap.top"],
+        "streamOrigins": [
+          "https://kodik-storage.com",
+          "https://kodik.cc",
+          "https://kodik.info",
+          "https://aniqit.com",
+          "https://hencdn.top"
+        ],
+        "methods": ["GET", "POST"],
+        "maxConcurrentRequests": 4,
+        "allowUserBaseUrl": true,
+        "allowSubdomains": true
+      },
+      "presentation": {
+        "directPlayback": false,
+        "artworkLayout": "portrait",
+        "imageHeaders": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+          "Accept": "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
+          "Accept-Language": "ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7",
+          "Referer": "https://anitokyo.tv/"
+        }
+      }
+    }
+  ],
+  "resolvers": [
+    {
+      "id": "anitokyo_nsfw.streams",
+      "sourceId": "anitokyo_nsfw",
+      "schemes": ["anitokyo"],
+      "origins": []
+    }
+  ],
+  "contributions": {
+    "hostFeatures": []
+  },
+  "files": {}
+}

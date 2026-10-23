@@ -1,0 +1,80 @@
+{
+  "schemaVersion": 1,
+  "sourceApiVersion": 1,
+  "minRuntimeAbi": 1,
+  "id": "filmorax.source.porno365",
+  "name": "Porno365",
+  "description": "Porno365 catalogue, filters, metadata and native MP4 streams",
+  "version": "1.0.0",
+  "minAppVersion": "1.0.0",
+  "publisherKeyId": "filmorax.sources",
+  "entrypoint": "src/index.mjs",
+  "permissions": ["http", "html", "settings"],
+  "sources": [
+    {
+      "id": "porno365",
+      "name": "Porno365",
+      "description": "source.description.porno365",
+      "language": "russian",
+      "category": "movies",
+      "baseUrl": "https://porno365.plus",
+      "isNsfw": true,
+      "supportsTorrentSearch": false,
+      "capabilities": [
+        "catalog",
+        "search",
+        "filters",
+        "metadata",
+        "playbackGroups",
+        "recommendations",
+        "streams",
+        "headers",
+        "mirrors"
+      ],
+      "parameters": {},
+      "network": {
+        "origins": [
+          "https://porno365.plus",
+          "https://porno365.golf",
+          "https://3porno365.run",
+          "https://4porno365.run"
+        ],
+        "imageOrigins": ["https://porno365.plus", "https://porno365.golf", "https://vidb365.com"],
+        "streamOrigins": ["https://vide365.com"],
+        "methods": ["GET"],
+        "maxConcurrentRequests": 4,
+        "allowUserBaseUrl": true,
+        "userBaseUrlUses": ["image"],
+        "allowSubdomains": true
+      },
+      "presentation": {
+        "icon": "assets/icon.png",
+        "directPlayback": true,
+        "artworkLayout": "landscape",
+        "imageHeaders": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+          "Accept": "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
+          "Accept-Language": "ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7",
+          "Referer": "https://a.porno365.golf/"
+        }
+      }
+    }
+  ],
+  "resolvers": [
+    {
+      "id": "porno365.streams",
+      "sourceId": "porno365",
+      "schemes": ["porno365", "https"],
+      "origins": [
+        "https://porno365.plus",
+        "https://porno365.golf",
+        "https://3porno365.run",
+        "https://4porno365.run"
+      ]
+    }
+  ],
+  "contributions": {
+    "hostFeatures": []
+  },
+  "files": {}
+}

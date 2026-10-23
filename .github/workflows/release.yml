@@ -1,0 +1,48 @@
+name: FilmoraX signed extension release
+on:
+  push:
+    tags: ['v[0-9]*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Existing v-tag version, without v; tag must point to this workflow commit
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: extensions-release
+  cancel-in-progress: false
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    environment: extensions-release
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit
+      - run: npm rebuild esbuild
+      - run: npm run format:check
+      - run: npm test
+      - name: Verify exact Git tag, sign in memory, independently verify every archive
+        run: node tools/protected_release.mjs
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+          FILMORAX_PUBLISHER_KEY_ID: ${{ vars.FILMORAX_PUBLISHER_KEY_ID }}
+          FILMORAX_PUBLISHER_FINGERPRINT: ${{ vars.FILMORAX_PUBLISHER_FINGERPRINT }}
+          FILMORAX_SIGNING_KEY_BASE64: ${{ secrets.FILMORAX_SIGNING_KEY_BASE64 }}
+      - name: Publish immutable signed packages, public record and detached inventory
+        run: node tools/protected_release.mjs --publish
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+          FILMORAX_PUBLISHER_KEY_ID: ${{ vars.FILMORAX_PUBLISHER_KEY_ID }}
+          FILMORAX_PUBLISHER_FINGERPRINT: ${{ vars.FILMORAX_PUBLISHER_FINGERPRINT }}
+          GH_TOKEN: ${{ github.token }}

@@ -1,0 +1,69 @@
+{
+  "schemaVersion": 1,
+  "sourceApiVersion": 1,
+  "minRuntimeAbi": 1,
+  "id": "filmorax.source.eporner",
+  "name": "Eporner",
+  "description": "Eporner catalogue, all filters, recommendations and native streams",
+  "version": "1.0.0",
+  "minAppVersion": "1.0.0",
+  "publisherKeyId": "filmorax.sources",
+  "entrypoint": "src/index.mjs",
+  "permissions": ["http", "html", "settings"],
+  "sources": [
+    {
+      "id": "eporner",
+      "name": "Eporner",
+      "description": "source.description.eporner",
+      "language": "international",
+      "category": "movies",
+      "baseUrl": "https://www.eporner.com",
+      "isNsfw": true,
+      "supportsTorrentSearch": false,
+      "capabilities": [
+        "catalog",
+        "search",
+        "filters",
+        "metadata",
+        "playbackGroups",
+        "recommendations",
+        "streams",
+        "headers",
+        "mirrors"
+      ],
+      "parameters": {},
+      "network": {
+        "origins": ["https://www.eporner.com", "https://eporner.com"],
+        "imageOrigins": ["https://eporner.com"],
+        "streamOrigins": ["https://eporner.com"],
+        "methods": ["GET"],
+        "maxConcurrentRequests": 4,
+        "allowUserBaseUrl": true,
+        "userBaseUrlUses": ["image", "stream"],
+        "allowSubdomains": true
+      },
+      "presentation": {
+        "directPlayback": true,
+        "artworkLayout": "landscape",
+        "imageHeaders": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+          "Accept": "image/jpeg,image/png,image/*;q=0.8,*/*;q=0.5",
+          "Accept-Language": "en-US,en;q=0.9,ru;q=0.7",
+          "Referer": "https://www.eporner.com/"
+        }
+      }
+    }
+  ],
+  "resolvers": [
+    {
+      "id": "eporner.streams",
+      "sourceId": "eporner",
+      "schemes": ["eporner", "https"],
+      "origins": ["https://eporner.com"]
+    }
+  ],
+  "contributions": {
+    "hostFeatures": []
+  },
+  "files": {}
+}

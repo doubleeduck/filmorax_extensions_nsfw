@@ -1,0 +1,104 @@
+{
+  "schemaVersion": 1,
+  "sourceApiVersion": 1,
+  "minRuntimeAbi": 1,
+  "id": "filmorax.source.animefox",
+  "name": "AnimeFox",
+  "description": "AnimeFox anime/hentai catalogue and native Kodik/Tentacl providers",
+  "version": "1.0.0",
+  "minAppVersion": "1.0.0",
+  "publisherKeyId": "filmorax.sources",
+  "entrypoint": "src/index.mjs",
+  "permissions": ["http", "html", "settings", "sourceSession", "crypto"],
+  "sources": [
+    {
+      "id": "animefox",
+      "name": "AnimeFox",
+      "description": "source.description.animefox",
+      "language": "russian",
+      "category": "anime",
+      "baseUrl": "https://www.animefox.org",
+      "isNsfw": true,
+      "supportsTorrentSearch": true,
+      "capabilities": [
+        "catalog",
+        "search",
+        "filters",
+        "metadata",
+        "playbackGroups",
+        "recommendations",
+        "streams",
+        "headers",
+        "mirrors"
+      ],
+      "parameters": {},
+      "runtime": {
+        "resolveTimeoutMs": 60000
+      },
+      "network": {
+        "origins": [
+          "https://www.animefox.org",
+          "https://animefox.org",
+          "https://x.tentacl.su",
+          "https://tentacl.su",
+          "https://kodik.info",
+          "https://kodikplayer.com",
+          "https://aniqit.com",
+          "https://kodik.cc",
+          "https://kodik.video"
+        ],
+        "authOrigins": ["https://www.animefox.org", "https://animefox.org"],
+        "imageOrigins": ["https://animefox.org"],
+        "streamOrigins": [
+          "https://tentacl.su",
+          "https://kodik-storage.com",
+          "https://kodik.info",
+          "https://kodik.cc",
+          "https://aniqit.com",
+          "https://userapi.com",
+          "https://vkuser.net",
+          "https://mycdn.me",
+          "https://okcdn.ru",
+          "https://yandex.net",
+          "https://yandexcloud.net"
+        ],
+        "methods": ["GET", "POST"],
+        "maxConcurrentRequests": 4,
+        "allowUserBaseUrl": true,
+        "userBaseUrlUses": ["httpAndAuth", "image"],
+        "allowSubdomains": true
+      },
+      "presentation": {
+        "icon": "assets/icon.png",
+        "directPlayback": false,
+        "artworkLayout": "portrait",
+        "imageHeaders": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+          "Accept": "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.9,ru;q=0.7"
+        }
+      }
+    }
+  ],
+  "resolvers": [
+    {
+      "id": "animefox.streams",
+      "sourceId": "animefox",
+      "schemes": ["https"],
+      "origins": [
+        "https://www.animefox.org",
+        "https://animefox.org",
+        "https://x.tentacl.su",
+        "https://kodik.info",
+        "https://kodikplayer.com",
+        "https://aniqit.com",
+        "https://kodik.cc",
+        "https://kodik.video"
+      ]
+    }
+  ],
+  "contributions": {
+    "hostFeatures": []
+  },
+  "files": {}
+}

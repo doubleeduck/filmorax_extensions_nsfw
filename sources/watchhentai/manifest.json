@@ -1,0 +1,69 @@
+{
+  "schemaVersion": 1,
+  "sourceApiVersion": 1,
+  "minRuntimeAbi": 1,
+  "id": "filmorax.source.watchhentai",
+  "name": "WatchHentai",
+  "description": "WatchHentai catalogue, metadata, series and native streams",
+  "version": "1.0.0",
+  "minAppVersion": "1.0.0",
+  "publisherKeyId": "filmorax.sources",
+  "entrypoint": "src/index.mjs",
+  "permissions": ["http", "html", "settings"],
+  "sources": [
+    {
+      "id": "watchhentai",
+      "name": "WatchHentai",
+      "description": "source.description.watchhentai",
+      "language": "english",
+      "category": "anime",
+      "baseUrl": "https://watchhentai.net",
+      "isNsfw": true,
+      "supportsTorrentSearch": true,
+      "capabilities": [
+        "catalog",
+        "search",
+        "filters",
+        "metadata",
+        "playbackGroups",
+        "recommendations",
+        "streams",
+        "headers",
+        "mirrors"
+      ],
+      "parameters": {},
+      "network": {
+        "origins": ["https://watchhentai.net"],
+        "imageOrigins": ["https://watchhentai.net"],
+        "streamOrigins": ["https://hstorage.xyz"],
+        "methods": ["GET"],
+        "maxConcurrentRequests": 4,
+        "allowUserBaseUrl": true,
+        "userBaseUrlUses": ["image"],
+        "allowSubdomains": true
+      },
+      "presentation": {
+        "icon": "assets/icon.png",
+        "directPlayback": false,
+        "artworkLayout": "portrait",
+        "imageHeaders": {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+          "Accept": "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.9,ru;q=0.7"
+        }
+      }
+    }
+  ],
+  "resolvers": [
+    {
+      "id": "watchhentai.streams",
+      "sourceId": "watchhentai",
+      "schemes": ["https"],
+      "origins": ["https://watchhentai.net"]
+    }
+  ],
+  "contributions": {
+    "hostFeatures": []
+  },
+  "files": {}
+}
