@@ -83,10 +83,15 @@ export function createCollaps(context, { now = Date.now } = {}) {
     }
     const suffix =
       /\bvar\s+lok\s*=\s*\d+\s*,\s*\w+\s*=\s*["']([a-f0-9]+)["']/.exec(html)?.[1] ?? '';
-    return { episodes, suffix };
+    return {
+      episodes,
+      suffix,
+      nativeHls: literalProperty(html, 'hlsNativeParam') === true,
+      nativeHlsQuality: literalProperty(html, 'hlsNativeQuality') === 'resolutionFilter',
+    };
   }
   async function resolve(value) {
-    const { input, embed, episodes, suffix } = await load(value),
+    const { input, embed, episodes, suffix, nativeHls, nativeHlsQuality } = await load(value),
       season = input.searchParams.get('season') ?? '',
       episode = input.searchParams.get('episode') ?? '';
     const matches =
@@ -106,10 +111,17 @@ export function createCollaps(context, { now = Date.now } = {}) {
       const uri = new URL(raw, embed),
         path = uri.pathname.toLowerCase();
       if (uri.protocol !== 'https:' || !/\.(?:m3u8|mpd|mp4)$/.test(path)) continue;
-      const url = uri.href + (suffix ? (uri.search ? '&' : '?') + suffix : '');
-      variants.push({
+      if (key === 'download' && suffix && uri.searchParams.has('m')) {
+        uri.searchParams.set('m', uri.searchParams.get('m') + '&' + suffix);
+      } else if (suffix) {
+        uri.search += (uri.search ? '&' : '?') + suffix;
+      }
+      // Use the site's native transport, not browser XHR/CDN interception.
+      // Its resolutionFilter operates on the master and retains AUDIO groups.
+      if (key === 'hls' && nativeHls) uri.searchParams.set('hls', 'native');
+      const variant = {
         quality: 'auto',
-        url,
+        url: uri.href,
         headers,
         mimeType: path.endsWith('.m3u8')
           ? 'application/vnd.apple.mpegurl'
@@ -117,7 +129,10 @@ export function createCollaps(context, { now = Date.now } = {}) {
             ? 'application/dash+xml'
             : 'video/mp4',
         isPreferred: key === 'hls',
-      });
+      };
+      variants.push(variant);
+      if (key === 'hls' && nativeHls && nativeHlsQuality)
+        variants.push(...(await nativeQualities(variant)));
     }
     if (!variants.length) throw fail('Collaps episode has no streams', 'stream_unavailable');
     return {
@@ -132,6 +147,45 @@ export function createCollaps(context, { now = Date.now } = {}) {
         (row) => row.id,
       ),
     };
+  }
+  async function nativeQualities(variant) {
+    try {
+      const playlist = text(
+        (
+          await context.http.request({
+            method: 'GET',
+            url: variant.url,
+            responseType: 'text',
+            userAgentProfile: 'browser',
+            headers: variant.headers,
+            timeoutMs: 4000,
+          })
+        ).body,
+      );
+      if (!playlist.trimStart().startsWith('#EXTM3U')) return [];
+      const qualities = new Map();
+      for (const line of playlist.split(/\r?\n/)) {
+        if (!line.startsWith('#EXT-X-STREAM-INF:')) continue;
+        const match = /(?:^|,)RESOLUTION=(\d{2,5})x(\d{2,5})(?:,|$)/.exec(line.slice(18));
+        if (!match) continue;
+        const [width, height] = match.slice(1).map(Number);
+        if (height < 100 || height > 8640 || width > 16384 || qualities.size >= 64) continue;
+        const url = new URL(variant.url);
+        url.searchParams.set('resolutionFilter', width + 'x' + height);
+        if (!qualities.has(height))
+          qualities.set(height, {
+            ...variant,
+            quality: String(height),
+            url: url.href,
+            isPreferred: false,
+          });
+      }
+      return [...qualities.values()];
+    } catch (error) {
+      if (error?.code === 'cancelled') throw error;
+      // Discovery must not prevent playback of an already resolved native HLS.
+      return [];
+    }
   }
   async function groups(value) {
     const { embed, referer, episodes } = await load(value);

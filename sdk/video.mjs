@@ -124,8 +124,24 @@ export function hlsVariants(playlist, masterUrl, headers = {}) {
     },
   ];
   const lines = playlist.split(/\r?\n/).map((line) => line.trim());
+  const externalAudio = new Set(
+    lines
+      .filter(
+        (line) =>
+          line.startsWith('#EXT-X-MEDIA:') &&
+          /(?:^|[:,])TYPE=AUDIO(?:,|$)/.test(line) &&
+          /(?:^|,)URI="/.test(line),
+      )
+      .map((line) => /(?:^|,)GROUP-ID="([^"]+)"/.exec(line)?.[1])
+      .filter(Boolean),
+  );
   for (let i = 0; i < lines.length; i++) {
     if (!lines[i].startsWith('#EXT-X-STREAM-INF:')) continue;
+    // A video rendition is not a complete stream when its sound lives in a
+    // separate AUDIO playlist. Keep the master so native track selection and
+    // dubbing are preserved, rather than offering silent fixed resolutions.
+    const audioGroup = /(?:^|,)AUDIO="([^"]+)"/.exec(lines[i].slice(18))?.[1];
+    if (externalAudio.has(audioGroup)) continue;
     const height = /(?:^|,)RESOLUTION=\d+x(\d+)/.exec(lines[i].slice(18))?.[1];
     const name = /(?:^|,)NAME="?(\d{3,4})p?/.exec(lines[i].slice(18))?.[1];
     let next = i + 1;
