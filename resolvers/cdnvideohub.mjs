@@ -96,22 +96,28 @@ export function createCdnVideoHub(context) {
         };
         if (!data.titleId || !data.publisher || !data.aggregator) throw fail('Incomplete CDN page');
       }
-      const playlist = array(
-        object(
-          await get(
-            queryUrl(api + '/', api + '/playlist', {
-              pub: data.publisher,
-              aggr: data.aggregator,
-              id: data.titleId,
-            }),
-            headers,
-          ),
-        ).items,
+      const playlistData = object(
+        await get(
+          queryUrl(api + '/', api + '/playlist', {
+            pub: data.publisher,
+            aggr: data.aggregator,
+            id: data.titleId,
+          }),
+          headers,
+        ),
       );
+      const playlist = array(playlistData.items),
+        movie = playlistData.isSerial === false;
+      if (
+        movie &&
+        ((text(data.episode) && Number(data.episode) !== 1) ||
+          (text(data.season) && Number(data.season) > 1))
+      )
+        throw fail('CDN movie does not contain this episode', 'episode_not_found');
       const matching = playlist.filter(
         (row) =>
-          (!text(data.episode) || Number(row.episode) === Number(data.episode)) &&
-          (!text(data.season) || Number(row.season) === Number(data.season)) &&
+          (movie || !text(data.episode) || Number(row.episode) === Number(data.episode)) &&
+          (movie || !text(data.season) || Number(row.season) === Number(data.season)) &&
           (!text(data.voice) || text(row.voiceStudio) === data.voice),
       );
       if (
