@@ -23,13 +23,36 @@ export function isCollaps(input) {
     return false;
   }
 }
-export function createCollaps(context) {
+export function createCollaps(context, { now = Date.now } = {}) {
+  // One current embed, not an unbounded title/stream cache. Details and the
+  // immediate first play share parsing; each call still selects its own episode.
+  let recent;
   async function load(value) {
     const input = new URL(value),
       embed = new URL(input.protocol === 'collaps:' ? input.searchParams.get('url') : value);
     if (!isCollaps(embed.href) || embed.protocol !== 'https:')
       throw fail('Unsupported Collaps embed');
     const referer = input.searchParams.get('referer') ?? '';
+    const key = `${embed.href}\n${referer}`,
+      age = recent ? now() - recent.at : Infinity;
+    if (!recent || recent.key !== key || (!recent.pending && (age < 0 || age >= 15000))) {
+      const entry = { key, at: now(), pending: true };
+      entry.promise = read(embed, referer).then(
+        (data) => {
+          entry.pending = false;
+          entry.at = now();
+          return data;
+        },
+        (error) => {
+          if (recent === entry) recent = undefined;
+          throw error;
+        },
+      );
+      recent = entry;
+    }
+    return { input, embed, referer, ...(await recent.promise) };
+  }
+  async function read(embed, referer) {
     const html = text(
       (
         await context.http.request({
@@ -60,7 +83,7 @@ export function createCollaps(context) {
     }
     const suffix =
       /\bvar\s+lok\s*=\s*\d+\s*,\s*\w+\s*=\s*["']([a-f0-9]+)["']/.exec(html)?.[1] ?? '';
-    return { input, embed, referer, episodes, suffix };
+    return { episodes, suffix };
   }
   async function resolve(value) {
     const { input, embed, episodes, suffix } = await load(value),

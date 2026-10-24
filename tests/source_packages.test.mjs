@@ -19,6 +19,12 @@ test('every authored source package is self-contained, reproducible and signed',
     for (const source of manifest.sources) {
       assert.equal(sources.has(source.id), false);
       sources.add(source.id);
+      assert.match(source.presentation?.icon ?? '', /^assets\/[A-Za-z0-9_.-]+\.png$/u);
+      assert.ok(manifest.files[source.presentation.icon]?.size <= 256 * 1024);
+      for (const field of ['origins', 'imageOrigins', 'streamOrigins', 'authOrigins']) {
+        const origins = source.network[field] ?? [];
+        assert.equal(new Set(origins).size, origins.length, `${source.id}: duplicate ${field}`);
+      }
     }
     assert.equal(Object.keys(manifest.files).filter((name) => name.endsWith('.mjs')).length, 1);
   }

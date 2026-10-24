@@ -6,7 +6,7 @@ export function isCdnVideoHub(value) {
     return (
       uri.protocol === 'https:' &&
       (uri.hostname.includes('cdnvideohub') ||
-        uri.pathname.includes('/iframecvh.html') ||
+        uri.pathname.toLowerCase() === '/iframecvh.html' ||
         uri.pathname.includes('/cdn-iframe/'))
     );
   } catch {
@@ -44,7 +44,7 @@ export function createCdnVideoHub(context) {
         : '';
     if (!vkId) {
       let data;
-      if (uri.pathname.includes('/iframecvh.html')) {
+      if (uri.pathname.toLowerCase() === '/iframecvh.html') {
         if (!uri.hostname.includes('yummyani')) throw fail('Unsupported CDN iframe host');
         data = {
           titleId: uri.searchParams.get('anime_id'),

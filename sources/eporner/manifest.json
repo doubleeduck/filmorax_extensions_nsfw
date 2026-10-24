@@ -43,6 +43,7 @@
         "allowSubdomains": true
       },
       "presentation": {
+        "icon": "assets/icon.png",
         "directPlayback": true,
         "artworkLayout": "landscape",
         "imageHeaders": {
