@@ -55,7 +55,8 @@ export async function decryptResponse(context, value, password) {
     ciphertext: base64FromBytes(bytes.slice(16)),
   });
 }
-export function createTentacl(context) {
+export function createTentacl(context, { now = Date.now } = {}) {
+  let inspected;
   const getHeaders = (referer, origin = '') => ({
     Accept: '*/*',
     'Accept-Language': 'ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7',
@@ -77,7 +78,7 @@ export function createTentacl(context) {
     );
   }
   async function page(url, referer, validate = false) {
-    return request(url, {
+    const html = await request(url, {
       method: validate ? 'POST' : 'GET',
       body: validate ? new URLSearchParams({ referer: referer || url }).toString() : null,
       headers: {
@@ -85,6 +86,26 @@ export function createTentacl(context) {
         ...(validate ? { 'Content-Type': 'application/x-www-form-urlencoded' } : {}),
       },
     });
+    // Some current embeds require the same referer form submission that the
+    // site uses before returning player settings. Do this once, on that embed
+    // only; a response page must never redirect a validation POST elsewhere.
+    if (!validate && html.includes('frmValidation')) {
+      const form = object(
+        await context.html.extract(html, {
+          selector: 'form#frmValidation',
+          fields: { action: { attr: 'action' }, method: { attr: 'method' } },
+        }),
+      );
+      const target = new URL(text(form.action), url),
+        input = new URL(url);
+      if (
+        text(form.method).toLowerCase() === 'post' &&
+        target.origin === input.origin &&
+        target.pathname === input.pathname
+      )
+        return page(target.href, referer, true);
+    }
+    return html;
   }
   async function servers(html, url) {
     const embed = new URL(url),
@@ -227,9 +248,13 @@ export function createTentacl(context) {
         headers: getHeaders(url, base.origin),
       });
     }
-    const expanded = [];
-    for (const variant of dedupe(variants, (v) => `${v.quality}:${v.url}`))
-      expanded.push(...(await expand(variant)));
+    const unique = dedupe(variants, (v) => `${v.quality}:${v.url}`),
+      results = [];
+    // Independent playlist reads share the existing host request budget. Keep
+    // source ordering, but avoid one full round trip per quality in sequence.
+    for (let offset = 0; offset < unique.length; offset += 3)
+      results.push(...(await Promise.all(unique.slice(offset, offset + 3).map(expand))));
+    const expanded = results.flat();
     return dedupe(expanded, (v) => `${v.quality}:${v.url}`).map(nativeVariant);
   }
   async function resolve(url, referer, serverId = '') {
@@ -248,8 +273,13 @@ export function createTentacl(context) {
           }),
         ],
       };
-    const html = await page(url, referer),
-      available = await servers(html, url),
+    const prior = inspected;
+    inspected = undefined;
+    const age = prior ? now() - prior.at : Infinity;
+    const reuse =
+      prior && prior.url === url && prior.referer === referer && age >= 0 && age < 10000;
+    const html = reuse ? prior.html : await page(url, referer),
+      available = reuse ? prior.servers : await servers(html, url),
       selected = available.find((v) => v.id === serverId);
     if (serverId && !selected)
       throw fail('Selected player server is unavailable', 'stream_unavailable');
@@ -274,5 +304,16 @@ export function createTentacl(context) {
     }
     throw last ?? fail('Player has no playable files', 'stream_unavailable');
   }
-  return { resolve, loadServers: async (url, referer) => servers(await page(url, referer), url) };
+  return {
+    resolve,
+    clearInspection: () => {
+      inspected = undefined;
+    },
+    loadServers: async (url, referer) => {
+      const html = await page(url, referer),
+        rows = await servers(html, url);
+      inspected = { url, referer, html, servers: rows, at: now() };
+      return rows;
+    },
+  };
 }

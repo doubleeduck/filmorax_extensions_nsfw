@@ -108,6 +108,7 @@ export function serializedFilters(filters) {
   return result.toString();
 }
 export default function createSource(context) {
+  let inspectedPayload;
   const tentacl = createTentacl(context),
     kodik = createKodik(context),
     origin = async () =>
@@ -474,7 +475,19 @@ export default function createSource(context) {
       relatedItems,
     };
   }
-  async function playerPayload(uri) {
+  async function playerPayload(uri, reuseInspection = false) {
+    const keyUri = new URL(uri);
+    keyUri.searchParams.delete('player');
+    const key = keyUri.href;
+    if (reuseInspection) {
+      const prior = inspectedPayload;
+      inspectedPayload = undefined;
+      if (prior?.key === key && Date.now() >= prior.at && Date.now() - prior.at < 10000)
+        return prior.value;
+    }
+    // A new episode payload may point to the same iframe URL with changed
+    // server-side state. Its old HTML must not survive this inspection miss.
+    tentacl.clearInspection();
     const base = await origin(),
       id = uri.pathname.split('/').filter(Boolean)[1];
     if (!/^\d+$/.test(id)) return null;
@@ -498,7 +511,7 @@ export default function createSource(context) {
         fields: { number: { attr: 'value' }, title: { text: true } },
       }),
     ]);
-    return {
+    const value = {
       iframe: absolute(iframe, base),
       episodes: dedupe(
         array(rows)
@@ -510,6 +523,8 @@ export default function createSource(context) {
         (v) => v.number,
       ),
     };
+    if (!reuseInspection) inspectedPayload = { key, value, at: Date.now() };
+    return value;
   }
   function titleReferer(uri, base) {
     try {
@@ -566,7 +581,7 @@ export default function createSource(context) {
       ['animefox.org', 'www.animefox.org', new URL(base).hostname].includes(uri.hostname) &&
       uri.pathname.startsWith('/embed/')
     ) {
-      const payload = await playerPayload(uri);
+      const payload = await playerPayload(uri, true);
       if (!payload?.iframe) throw fail('AnimeFox iframe was not found', 'stream_unavailable');
       target = payload.iframe;
     }
