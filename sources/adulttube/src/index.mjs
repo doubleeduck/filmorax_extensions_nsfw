@@ -96,7 +96,9 @@ export async function streamVariants(context, html, headers) {
             url: uri.href,
             refreshBeforePlay: uri.searchParams.has('secure'),
             mimeType: mime,
-            headers,
+            // The signed Noodle CDN URL plays directly. Supplying an Origin
+            // header to its native MP4 request can make it fail outside the site.
+            headers: uri.hostname.endsWith('.noodlemagazine.com') ? {} : headers,
           };
         })
         .filter((v) => v.mimeType),
@@ -123,9 +125,9 @@ export default function createSource(context) {
             Accept: 'text/html',
             'Accept-Language': 'ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7',
             Referer: referer || (await origin()) + '/recent',
-            Origin: await origin(),
             ...(body
               ? {
+                  Origin: await origin(),
                   'Content-Type': 'application/x-www-form-urlencoded',
                   'X-Requested-With': 'XMLHttpRequest',
                 }
@@ -241,7 +243,7 @@ export default function createSource(context) {
       (uri.hostname === 'nmcorp.video' && uri.pathname.startsWith('/player/'))
     ))
       throw fail('Unsupported AdultTube URL');
-    const headers = { Referer: base + '/', Origin: base },
+    const headers = { Referer: base + '/' },
       html = await request(url, { referer: base + '/recent' });
     let result = await streamVariants(context, html, headers);
     if (!result.variants.length && result.embed) {

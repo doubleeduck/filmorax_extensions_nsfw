@@ -41,6 +41,8 @@ test('Porno365 uses the requested mirror and follows a labelled next-page link',
     });
   assert.equal(definition.baseUrl, 'https://t.porno365.golf');
   assert.ok(definition.network.origins.includes(definition.baseUrl));
+  assert.ok(definition.network.origins.includes('http://4porno365.fun'));
+  assert.ok(manifest.resolvers[0].origins.includes('http://4porno365.fun'));
   const result = await source.getLatest();
   assert.equal(requests[0], 'https://t.porno365.golf/');
   assert.equal(result.items.length, 1);
