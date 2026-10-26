@@ -96,8 +96,7 @@ export async function streamVariants(context, html, headers) {
             url: uri.href,
             refreshBeforePlay: uri.searchParams.has('secure'),
             mimeType: mime,
-            // The signed Noodle CDN URL plays directly. Supplying an Origin
-            // header to its native MP4 request can make it fail outside the site.
+            // Native media uses the host's default browser identity.
             headers: uri.hostname.endsWith('.noodlemagazine.com') ? {} : headers,
           };
         })
@@ -257,6 +256,29 @@ export default function createSource(context) {
     }
     if (!result.variants.length)
       throw fail('AdultTube player has no playable files', 'stream_unavailable');
+    const cdn = result.variants.find(
+      (variant) => new URL(variant.url).hostname === 'cdn.noodlemagazine.com',
+    );
+    if (cdn) {
+      try {
+        await context.http.request({
+          method: 'HEAD',
+          url: cdn.url,
+          responseType: 'bytes',
+          userAgentProfile: 'browser',
+        });
+      } catch (error) {
+        if (['challenge_required', 'access_denied', 'auth_required'].includes(error?.code))
+          throw Object.assign(
+            fail(
+              'AdultTube CDN requires browser verification. Open source sign-in, complete the CDN check and save the session.',
+              'challenge_required',
+            ),
+            { phase: 'http', httpStatus: error.httpStatus ?? 403 },
+          );
+        throw error;
+      }
+    }
     return { variants: result.variants };
   }
   return {

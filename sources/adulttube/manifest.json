@@ -9,7 +9,7 @@
   "minAppVersion": "1.0.0",
   "publisherKeyId": "filmorax.sources",
   "entrypoint": "src/index.mjs",
-  "permissions": ["http", "html", "settings"],
+  "permissions": ["http", "html", "settings", "sourceSession"],
   "sources": [
     {
       "id": "adulttube",
@@ -29,16 +29,24 @@
         "recommendations",
         "streams",
         "headers",
+        "auth",
         "mirrors"
       ],
+      "web": {
+        "loginUrl": "https://cdn.noodlemagazine.com/",
+        "cookieOrigins": ["https://cdn.noodlemagazine.com"]
+      },
       "parameters": {},
       "network": {
         "origins": [
           "https://mat6tube.com",
           "https://wow.mat6tube.com",
           "https://hot.mat6tube.com",
-          "https://nmcorp.video"
+          "https://nmcorp.video",
+          "https://cdn.noodlemagazine.com"
         ],
+        "authOrigins": ["https://cdn.noodlemagazine.com"],
+        "userAgentProfile": "browser",
         "imageOrigins": [
           "https://mat6tube.com",
           "https://noodlemagazine.com",
@@ -86,7 +94,7 @@
             "value": "1"
           }
         ],
-        "methods": ["GET", "POST"],
+        "methods": ["GET", "POST", "HEAD"],
         "maxConcurrentRequests": 3,
         "allowUserBaseUrl": true,
         "userBaseUrlUses": ["http", "image"],
