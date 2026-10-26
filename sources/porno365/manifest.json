@@ -17,7 +17,7 @@
       "description": "source.description.porno365",
       "language": "russian",
       "category": "movies",
-      "baseUrl": "https://porno365.plus",
+      "baseUrl": "https://t.porno365.golf",
       "isNsfw": true,
       "supportsTorrentSearch": false,
       "capabilities": [
@@ -34,12 +34,19 @@
       "parameters": {},
       "network": {
         "origins": [
+          "https://t.porno365.golf",
           "https://porno365.plus",
           "https://porno365.golf",
           "https://3porno365.run",
           "https://4porno365.run"
         ],
-        "imageOrigins": ["https://porno365.plus", "https://porno365.golf", "https://vidb365.com"],
+        "imageOrigins": [
+          "https://t.porno365.golf",
+          "https://porno365.plus",
+          "https://porno365.golf",
+          "https://vidb365.com",
+          "https://pic.vidb365.com"
+        ],
         "streamOrigins": ["https://vide365.com"],
         "methods": ["GET"],
         "maxConcurrentRequests": 4,
@@ -55,7 +62,7 @@
           "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
           "Accept": "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
           "Accept-Language": "ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7",
-          "Referer": "https://a.porno365.golf/"
+          "Referer": "https://t.porno365.golf/"
         }
       }
     }
@@ -66,6 +73,7 @@
       "sourceId": "porno365",
       "schemes": ["porno365", "https"],
       "origins": [
+        "https://t.porno365.golf",
         "https://porno365.plus",
         "https://porno365.golf",
         "https://3porno365.run",

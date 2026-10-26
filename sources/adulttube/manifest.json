@@ -21,6 +21,7 @@
       "isNsfw": true,
       "supportsTorrentSearch": false,
       "capabilities": [
+        "catalog",
         "search",
         "filters",
         "metadata",

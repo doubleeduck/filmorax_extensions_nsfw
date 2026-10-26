@@ -4,7 +4,7 @@ export const isSite = (host) => /(?:^|[.-])[a-z0-9-]*porno365(?=[.-]|$)/i.test(h
 export function sitePath(value, pattern) {
   if (!text(value)) return '';
   try {
-    const uri = new URL(value, 'https://porno365.plus');
+    const uri = new URL(value, 'https://t.porno365.golf');
     if (!isSite(uri.hostname)) return '';
     const path = decodeURI(uri.pathname).replace(/\/+$/, '') || '/';
     return pattern.test(path) ? path : '';
@@ -122,7 +122,12 @@ export default function createSource(context) {
       });
     }
     const final = new URL(response.url || base + path);
-    if (isSite(final.hostname)) resolved = final.origin;
+    if (
+      !isSite(final.hostname) ||
+      (final.protocol !== 'https:' && final.origin !== 'http://4porno365.fun')
+    )
+      throw fail('Porno365 mirror redirected outside its site origins', 'network');
+    resolved = final.origin;
     return { html: text(response.body), origin: final.origin };
   }
   async function getFilters({ refresh = false } = {}) {
@@ -223,7 +228,17 @@ export default function createSource(context) {
     ).slice(0, 50);
     return {
       items,
-      hasMore: array(data.next).some((v) => Number(v.label) === page + 1) || items.length >= 50,
+      hasMore:
+        array(data.next).some((v) => {
+          try {
+            const next = new URL(v.url, origin);
+            return (
+              isSite(next.hostname) && next.pathname.replace(/\/+$/, '').endsWith('/' + (page + 1))
+            );
+          } catch {
+            return false;
+          }
+        }) || items.length >= 50,
     };
   }
   async function loadDetails({ itemId }) {
@@ -323,7 +338,6 @@ export default function createSource(context) {
     const input = new URL(url),
       page = new URL(input.protocol === 'porno365:' ? input.searchParams.get('url') : url);
     if (!isSite(page.hostname) || !moviePath(page.href)) throw fail('Unsupported Porno365 URL');
-    if (page.protocol === 'http:') page.protocol = 'https:';
     const html = text(
         (
           await context.http.request({
@@ -371,8 +385,8 @@ export default function createSource(context) {
     search,
     loadDetails,
     resolveStream,
-    getPopular: ({ page = 1 }) => search({ page, selectedFilters: { sort: ['popular'] } }),
-    getLatest: ({ page = 1 }) => search({ page }),
+    getPopular: ({ page = 1 } = {}) => search({ page, selectedFilters: { sort: ['popular'] } }),
+    getLatest: ({ page = 1 } = {}) => search({ page }),
     getRecommendations: async (args) => (await loadDetails(args))?.relatedItems ?? [],
     loadPlaybackGroups: async (args) =>
       args.url ? [] : ((await loadDetails(args))?.playbackGroups ?? []),

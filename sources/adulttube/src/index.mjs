@@ -138,8 +138,7 @@ export default function createSource(context) {
     );
   }
   async function search({ page = 1, searchTerm = '', selectedFilters = {} } = {}) {
-    const term = text(searchTerm);
-    if (!term) return { items: [], hasMore: false };
+    const term = text(searchTerm) || 'adult';
     const base = await origin(),
       url = new URL(base + '/video/' + encodeURIComponent(term)),
       sort = text(selectedFilters.sort?.[0]);
@@ -272,8 +271,8 @@ export default function createSource(context) {
         defaultValues: ['2'],
       },
     ],
-    getPopular: async () => ({ items: [], hasMore: false }),
-    getLatest: async () => ({ items: [], hasMore: false }),
+    getPopular: ({ page = 1 } = {}) => search({ page }),
+    getLatest: ({ page = 1 } = {}) => search({ page, selectedFilters: { sort: ['0'] } }),
     search,
     loadDetails,
     resolveStream,
