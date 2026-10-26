@@ -57,7 +57,8 @@
         "methods": ["GET", "POST"],
         "maxConcurrentRequests": 4,
         "allowUserBaseUrl": true,
-        "allowSubdomains": true
+        "allowSubdomains": true,
+        "userBaseUrlUses": ["image"]
       },
       "presentation": {
         "icon": "assets/icon.png",

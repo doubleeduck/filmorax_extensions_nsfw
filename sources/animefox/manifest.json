@@ -85,7 +85,7 @@
     {
       "id": "animefox.streams",
       "sourceId": "animefox",
-      "schemes": ["https"],
+      "schemes": ["https", "http"],
       "origins": [
         "https://www.animefox.org",
         "https://animefox.org",

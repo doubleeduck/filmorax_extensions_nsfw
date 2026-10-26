@@ -148,7 +148,7 @@ export function hlsVariants(playlist, masterUrl, headers = {}) {
     while (next < lines.length && (!lines[next] || lines[next].startsWith('#'))) next++;
     if (next < lines.length) {
       const url = new URL(lines[next], masterUrl);
-      if (url.protocol === 'https:')
+      if (url.protocol === 'https:' || url.protocol === 'http:')
         result.push({
           quality: height ?? name ?? 'auto',
           url: url.href,

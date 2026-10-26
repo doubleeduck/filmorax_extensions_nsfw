@@ -98,7 +98,7 @@
     {
       "id": "xhamster.streams",
       "sourceId": "xhamster",
-      "schemes": ["https"],
+      "schemes": ["https", "http"],
       "origins": [
         "https://xhamster.com",
         "https://xhamster.one",

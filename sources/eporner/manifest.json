@@ -59,7 +59,7 @@
     {
       "id": "eporner.streams",
       "sourceId": "eporner",
-      "schemes": ["eporner", "https"],
+      "schemes": ["eporner", "https", "http"],
       "origins": ["https://eporner.com"]
     }
   ],

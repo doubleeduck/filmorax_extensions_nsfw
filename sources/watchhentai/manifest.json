@@ -58,7 +58,7 @@
     {
       "id": "watchhentai.streams",
       "sourceId": "watchhentai",
-      "schemes": ["https"],
+      "schemes": ["https", "http"],
       "origins": ["https://watchhentai.net"]
     }
   ],

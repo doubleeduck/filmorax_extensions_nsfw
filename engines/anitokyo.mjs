@@ -82,31 +82,31 @@ export default function createSource(context) {
     id = context.sourceId;
   let cachedFilters;
   const kodik = createKodik(context),
-    project = (body, query) => context.html.extract(body, query);
+    project = (response, query) => context.html.extract(response.body, query, response.url);
   const origin = async () => {
     const config = await context.settings.network();
     return (config.baseUrl || context.baseUrl).replace(/\/+$/, '');
   };
   async function request(path, { body, base } = {}) {
     base ??= await origin();
-    return text(
-      (
-        await context.http.request({
-          method: body == null ? 'GET' : 'POST',
-          url: new URL(path, base).href,
-          responseType: 'text',
-          userAgentProfile: 'browser',
-          headers: {
-            Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-            'Accept-Language': 'ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7',
-            Referer: `${base}/`,
-            Origin: new URL(base).origin,
-            ...(body == null ? {} : { 'Content-Type': 'application/x-www-form-urlencoded' }),
-          },
-          ...(body == null ? {} : { body }),
-        })
-      ).body,
-    );
+    const response = await context.http.request({
+      method: body == null ? 'GET' : 'POST',
+      url: new URL(path.replace(/^\//, ''), base.replace(/\/+$/, '') + '/').href,
+      responseType: 'text',
+      userAgentProfile: 'browser',
+      headers: {
+        Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7',
+        Referer: `${base}/`,
+        Origin: new URL(base).origin,
+        ...(body == null ? {} : { 'Content-Type': 'application/x-www-form-urlencoded' }),
+      },
+      ...(body == null ? {} : { body }),
+    });
+    return {
+      body: text(response.body),
+      url: response.url || new URL(path.replace(/^\//, ''), base.replace(/\/+$/, '') + '/').href,
+    };
   }
   function item(row, base) {
     const path = normalize(first(row.href, row.fallbackHref), base),
@@ -208,7 +208,7 @@ export default function createSource(context) {
   }
   async function search({ page = 1, searchTerm = '', selectedFilters = {} } = {}) {
     page = Math.max(1, page);
-    const base = await origin(),
+    const configuredBase = await origin(),
       filtered = text(searchTerm) || Object.keys(selectedFilters).length;
     let path, body;
     if (!filtered) path = `/${nsfw ? 'hentai' : 'anime'}/${page > 1 ? `page/${page}/` : ''}`;
@@ -244,8 +244,10 @@ export default function createSource(context) {
       if (text(selectedFilters.episode_total?.[0])) form.set('episode_difference', '');
       body = form.toString();
     }
+    const response = await request(path, { base: configuredBase, body }),
+      base = response.url;
     const data = object(
-      await project(await request(path, { base, body }), {
+      await project(response, {
         fields: {
           cards: { selector: 'article.story.shortstory', all: true, fields: cardFields },
           next: { selector: '.n_next a[href]', attr: 'href' },
@@ -337,8 +339,9 @@ export default function createSource(context) {
       (!nsfw && path.startsWith('hentai/'))
     )
       return null;
-    const base = await origin(),
-      html = await request(`/${path}.html`, { base });
+    const response = await request(`/${path}.html`),
+      base = response.url,
+      html = response;
     const data = object(
       await project(html, {
         fields: {
@@ -380,7 +383,7 @@ export default function createSource(context) {
       isNsfw: nsfw,
       tags: meta.filter((row) => row.kind === 'genre').map((row) => row.value),
       metadata: meta,
-      playbackGroups: await playback(html, canonicalId, base),
+      playbackGroups: await playback(html.body, canonicalId, base),
       relatedItems: dedupe(
         array(data.related)
           .map((row) => item(row, base))
@@ -394,12 +397,12 @@ export default function createSource(context) {
     if (input.protocol !== 'anitokyo:' || input.hostname !== 'player')
       throw fail('Invalid wrapper URL');
     const page = new URL(input.searchParams.get('url') ?? '');
-    if (page.origin !== new URL(await origin()).origin || page.pathname !== '/video.php')
+    if (!['http:', 'https:'].includes(page.protocol) || !page.pathname.endsWith('/video.php'))
       throw fail('Invalid wrapper target', 'permission_denied');
     const html = await request(page.href),
       src = await project(html, { selector: 'iframe', attr: 'src' });
     if (!src) throw fail('Player provider is missing', 'stream_unavailable');
-    const embedded = new URL(src, page).href;
+    const embedded = new URL(src, html.url).href;
     if (isKodik(embedded)) return kodik(embedded);
     const provider = new URL(embedded);
     if (provider.hostname !== 'hencdn.top' && !provider.hostname.endsWith('.hencdn.top'))
@@ -431,7 +434,7 @@ export default function createSource(context) {
     if (!variants.length) throw fail('Provider returned no native streams', 'stream_unavailable');
     let tracks = [];
     const raw = /\bsubtitles\s*:\s*(\[[\s\S]*?\])\s*,\s*(?:fonts|workerUrl)\s*:/i.exec(
-      providerHtml,
+      providerHtml.body,
     )?.[1];
     if (raw) {
       try {

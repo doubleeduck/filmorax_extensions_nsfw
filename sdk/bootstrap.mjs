@@ -132,10 +132,10 @@ define('__mlInitialize', async (config) => {
     parameters: definition.parameters ?? {},
     http: { request: (input) => call('http', input) },
     html: {
-      extract: (body, query, baseUrl = definition.baseUrl) =>
-        call('html', { body, query, baseUrl }),
-      extractMany: (bodies, query, baseUrl = definition.baseUrl) =>
-        call('html.extractMany', { bodies, query, baseUrl }),
+      extract: (body, query, baseUrl) =>
+        call('html', { body, query, ...(baseUrl === undefined ? {} : { baseUrl }) }),
+      extractMany: (bodies, query, baseUrl) =>
+        call('html.extractMany', { bodies, query, ...(baseUrl === undefined ? {} : { baseUrl }) }),
       text: (bodies) => call('html.text', { bodies }),
     },
     settings: {

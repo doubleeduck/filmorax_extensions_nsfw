@@ -71,7 +71,7 @@
     {
       "id": "porno365.streams",
       "sourceId": "porno365",
-      "schemes": ["porno365", "https"],
+      "schemes": ["porno365", "https", "http"],
       "origins": [
         "https://t.porno365.golf",
         "https://porno365.plus",

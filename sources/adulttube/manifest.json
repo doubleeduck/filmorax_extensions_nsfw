@@ -108,7 +108,7 @@
     {
       "id": "adulttube.streams",
       "sourceId": "adulttube",
-      "schemes": ["https"],
+      "schemes": ["https", "http"],
       "origins": [
         "https://mat6tube.com",
         "https://wow.mat6tube.com",
