@@ -29,13 +29,8 @@
         "recommendations",
         "streams",
         "headers",
-        "auth",
         "mirrors"
       ],
-      "web": {
-        "loginUrl": "https://cdn.noodlemagazine.com/",
-        "cookieOrigins": ["https://cdn.noodlemagazine.com"]
-      },
       "parameters": {},
       "network": {
         "origins": [
@@ -46,6 +41,7 @@
           "https://cdn.noodlemagazine.com"
         ],
         "authOrigins": ["https://cdn.noodlemagazine.com"],
+        "browserMediaOrigins": ["https://cdn.noodlemagazine.com"],
         "userAgentProfile": "browser",
         "imageOrigins": [
           "https://mat6tube.com",
@@ -55,6 +51,7 @@
           "https://mycdn.me"
         ],
         "streamOrigins": [
+          "https://cdn.noodlemagazine.com",
           "https://noodlemagazine.com",
           "https://pvvstream.pro",
           "https://okcdn.ru",
@@ -94,7 +91,7 @@
             "value": "1"
           }
         ],
-        "methods": ["GET", "POST", "HEAD"],
+        "methods": ["GET", "POST"],
         "maxConcurrentRequests": 3,
         "allowUserBaseUrl": true,
         "userBaseUrlUses": ["http", "image"],

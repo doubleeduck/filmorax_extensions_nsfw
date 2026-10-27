@@ -2,7 +2,7 @@ import { readFile, readdir, mkdir, writeFile, lstat } from 'node:fs/promises';
 import { createHash, generateKeyPairSync } from 'node:crypto';
 import { build } from 'esbuild';
 import path from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { signedManifest, packageZip, verifyPackage } from './package_format.mjs';
 import { releaseVersion } from './release_version.mjs';
 
@@ -39,7 +39,7 @@ export async function pack({ project, key, keyId, version }) {
       for (const entry of await readdir(full)) await collect(`${relative}/${entry}`);
     } else {
       if (
-        !/^(?:LICENSE|(?:src|assets)\/[a-zA-Z0-9_./-]+\.(?:mjs|js|json|png|jpg|jpeg|webp|txt))$/u.test(
+        !/^(?:LICENSE|(?:src|assets)\/[a-zA-Z0-9_./-]+\.(?:mjs|js|json|png|jpg|jpeg|webp|txt|md))$/u.test(
           relative,
         ) ||
         relative.split('/').some((part) => !part || part === '.' || part === '..')
@@ -56,6 +56,16 @@ export async function pack({ project, key, keyId, version }) {
     } catch (error) {
       if (error.code !== 'ENOENT' || folder === 'src') throw error;
     }
+  }
+  // One maintained guide per language, included in every signed package.
+  const docsRoot = fileURLToPath(new URL('../docs/', import.meta.url));
+  for (const language of ['ru', 'en']) {
+    const name = `extensions.${language}.md`,
+      entry = `assets/docs/${name}`;
+    if (payloads.has(entry)) throw Error('Reserved shared documentation path');
+    const bytes = await readFile(path.join(docsRoot, name));
+    if (!bytes.length || bytes.length > 1024 * 1024) throw Error('Invalid developer guide size');
+    payloads.set(entry, bytes);
   }
   if (hasJs && !payloads.has(manifest.entrypoint))
     throw Error('Entrypoint must be a packaged module');

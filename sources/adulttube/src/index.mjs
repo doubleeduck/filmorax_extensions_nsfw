@@ -256,29 +256,8 @@ export default function createSource(context) {
     }
     if (!result.variants.length)
       throw fail('AdultTube player has no playable files', 'stream_unavailable');
-    const cdn = result.variants.find(
-      (variant) => new URL(variant.url).hostname === 'cdn.noodlemagazine.com',
-    );
-    if (cdn) {
-      try {
-        await context.http.request({
-          method: 'HEAD',
-          url: cdn.url,
-          responseType: 'bytes',
-          userAgentProfile: 'browser',
-        });
-      } catch (error) {
-        if (['challenge_required', 'access_denied', 'auth_required'].includes(error?.code))
-          throw Object.assign(
-            fail(
-              'AdultTube CDN requires browser verification. Open source sign-in, complete the CDN check and save the session.',
-              'challenge_required',
-            ),
-            { phase: 'http', httpStatus: error.httpStatus ?? 403 },
-          );
-        throw error;
-      }
-    }
+    // The host media broker owns CDN access. A HEAD request from the JS HTTP
+    // transport can be challenged even when the browser media transport works.
     return { variants: result.variants };
   }
   return {

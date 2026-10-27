@@ -1,4 +1,4 @@
-/** FilmoraX source API v1. No Flutter, Dart, browser DOM, Node or platform APIs. */
+/** FilmoraX source API v1. No browser DOM, Node or platform APIs. */
 export type Json = null | boolean | number | string | Json[] | { [key: string]: Json };
 export interface SourceContext {
   readonly sourceId: string;
