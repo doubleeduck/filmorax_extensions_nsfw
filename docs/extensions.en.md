@@ -471,7 +471,7 @@ explicitly, including scheme and port, without paths or `*`:
 | `streamOrigins` | Video and subtitles |
 | `webOrigins` | Public title links; does not grant API access |
 | `authOrigins` | Exact session recipients; redirects do not expand them |
-| `browserMediaOrigins` | Explicit browser MP4 delivery to the native player (Windows) |
+| `browserMediaOrigins` | Explicit browser MP4 delivery to the native player (Windows, Android phones/TV) |
 
 Signed extensions may explicitly declare HTTP. Do not disable TLS validation.
 The application follows redirects, including a new public domain, within the
@@ -505,7 +505,8 @@ by exposing a token in a public URL.
 A source may opt into `browserMediaOrigins` when its CDN challenges native HTTP
 requests. Each origin must be exact HTTPS and explicitly present in `origins`,
 `streamOrigins` and `authOrigins`; the package requires `sourceSession`.
-On Windows, the host reads through WebView2 in chunks up to 1 MiB while preserving
+On Windows (WebView2) and Android phones/TV (system WebView), the host reads
+in chunks up to 1 MiB while preserving
 native Range/HEAD semantics. Video still plays in the native player.
 This grant is separate from `userAgentProfile: browser`, is never inferred from
 redirects and does not enable other sources. Extension JavaScript receives no
