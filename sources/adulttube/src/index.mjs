@@ -5,7 +5,12 @@ const meta = (property) => ({
   attr: 'content',
 });
 const imageFields = {
-  fields: { lazy: { attr: 'data-src' }, src: { attr: 'src' }, alt: { attr: 'alt' } },
+  fields: {
+    lazy: { attr: 'data-src' },
+    src: { attr: 'src' },
+    fallback: { attr: 'data-fallback-src' },
+    alt: { attr: 'alt' },
+  },
 };
 const cardFields = {
   url: { selector: 'a.item_link', attr: 'href' },
@@ -14,7 +19,29 @@ const cardFields = {
   duration: { selector: '.m_time', text: true },
   views: { selector: '.m_views', text: true },
 };
-const absolute = (value, base) => (text(value) ? new URL(value, base).href : '');
+const absolute = (value, base) => {
+  if (!text(value)) return '';
+  try {
+    const uri = new URL(text(value), base);
+    return ['http:', 'https:'].includes(uri.protocol) && !uri.username && !uri.password
+      ? uri.href
+      : '';
+  } catch {
+    return '';
+  }
+};
+const pageSize = 24;
+export function searchUrl(base, { searchTerm = '', selectedFilters = {} } = {}) {
+  const term = text(searchTerm).normalize('NFC') || 'adult';
+  if (term.length > 2048) throw fail('AdultTube search query is too long', 'invalid_argument');
+  const url = new URL(base.replace(/\/+$/, '') + '/video/' + encodeURIComponent(term));
+  const sort = text(selectedFilters.sort?.[0]),
+    length = text(selectedFilters.len?.[0]);
+  if (['0', '1'].includes(sort)) url.searchParams.set('sort', sort);
+  if (['short', 'long'].includes(length)) url.searchParams.set('len', length);
+  if (['true', '1'].includes(text(selectedFilters.hd?.[0]))) url.searchParams.set('hd', '1');
+  return url;
+}
 const titleTags = (value) =>
   value
     .split(/[,/|]/)
@@ -41,7 +68,10 @@ function card(row, base) {
   const path = watchPath(row.url),
     title = first(row.title, row.image?.alt);
   if (!path || !title) return null;
-  const poster = absolute(first(row.image?.lazy, row.image?.src), base);
+  const poster =
+    [row.image?.lazy, row.image?.src, row.image?.fallback]
+      .map((value) => absolute(value, base))
+      .find(Boolean) || '';
   return {
     id: 'adulttube-' + encodeURIComponent(path),
     webUrl: new URL(path, base).href,
@@ -112,67 +142,80 @@ export async function streamVariants(context, html, headers) {
 export default function createSource(context) {
   const origin = async () =>
     ((await context.settings.network()).baseUrl || context.baseUrl).replace(/\/+$/, '');
-  async function request(url, { referer, body, csrf } = {}) {
-    return text(
-      (
-        await context.http.request({
-          method: body ? 'POST' : 'GET',
-          url,
-          responseType: 'text',
-          userAgentProfile: 'browser',
-          headers: {
-            Accept: 'text/html',
-            'Accept-Language': 'ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7',
-            Referer: referer || (await origin()) + '/recent',
-            ...(body
-              ? {
-                  Origin: await origin(),
-                  'Content-Type': 'application/x-www-form-urlencoded',
-                  'X-Requested-With': 'XMLHttpRequest',
-                }
-              : {}),
-            ...(csrf ? { 'X-CSRFToken': csrf } : {}),
-          },
-          ...(body ? { body: new URLSearchParams(body).toString() } : {}),
-        })
-      ).body,
-    );
+  async function requestPage(url, { referer, body, csrf } = {}) {
+    const response = await context.http.request({
+      method: body ? 'POST' : 'GET',
+      url,
+      responseType: 'text',
+      userAgentProfile: 'browser',
+      headers: {
+        Accept: 'text/html',
+        'Accept-Language': 'ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7',
+        Referer: referer || (await origin()) + '/recent',
+        ...(body
+          ? {
+              Origin: new URL(url).origin,
+              'Content-Type': 'application/x-www-form-urlencoded',
+              'X-Requested-With': 'XMLHttpRequest',
+            }
+          : {}),
+        ...(csrf ? { 'X-CSRFToken': csrf } : {}),
+      },
+      ...(body ? { body: new URLSearchParams(body).toString() } : {}),
+    });
+    return { html: text(response.body), url: response.url || url };
   }
+  const request = async (url, options) => (await requestPage(url, options)).html;
   async function search({ page = 1, searchTerm = '', selectedFilters = {} } = {}) {
-    const term = text(searchTerm) || 'adult';
+    page = Math.max(1, Math.trunc(Number(page)) || 1);
     const base = await origin(),
-      url = new URL(base + '/video/' + encodeURIComponent(term)),
-      sort = text(selectedFilters.sort?.[0]);
-    if (sort && sort !== '2') url.searchParams.set('sort', sort);
-    let html = await request(url.href, { referer: base + '/recent' });
+      url = searchUrl(base, { searchTerm, selectedFilters });
+    let response = await requestPage(url.href, { referer: base + '/recent' });
     if (page > 1) {
       const csrf = text(
-        await context.html.extract(html, {
-          selector: 'input[name="csrfmiddlewaretoken"]',
-          attr: 'value',
-        }),
+        await context.html.extract(
+          response.html,
+          {
+            selector: 'input[name="csrfmiddlewaretoken"]',
+            attr: 'value',
+          },
+          response.url,
+        ),
       );
-      html = await request(url.href, {
-        referer: url.href,
+      if (!csrf) throw fail('AdultTube search pagination token was not found');
+      response = await requestPage(response.url, {
+        referer: response.url,
         csrf,
-        body: { ...(csrf ? { csrfmiddlewaretoken: csrf } : {}), p: String(page - 1) },
+        body: {
+          ...Object.fromEntries(url.searchParams),
+          csrfmiddlewaretoken: csrf,
+          p: String(page - 1),
+        },
       });
     }
     const data = object(
-        await context.html.extract(html, {
-          fields: {
-            cards: { selector: '.item', all: true, fields: cardFields },
-            more: { selector: '.more', text: true },
+        await context.html.extract(
+          response.html,
+          {
+            fields: {
+              cards: { selector: '.item', all: true, fields: cardFields },
+              more: { selector: '.more', attr: 'data-page' },
+            },
           },
-        }),
+          response.url,
+        ),
       ),
       items = dedupe(
         array(data.cards)
-          .map((row) => card(row, base))
+          .map((row) => card(row, response.url))
           .filter(Boolean),
         (v) => v.id,
-      ).slice(0, 24);
-    return { items, hasMore: Boolean(text(data.more)) || items.length >= 24 };
+      );
+    return {
+      items,
+      hasMore:
+        items.length > 0 && (Boolean(text(data.more)) || array(data.cards).length >= pageSize),
+    };
   }
   async function loadDetails({ itemId }) {
     const path = watchPath(
@@ -237,10 +280,18 @@ export default function createSource(context) {
   async function resolveStream({ url }) {
     const uri = new URL(url),
       base = await origin();
-    if (!(
-      (uri.origin === base && watchPath(uri.href)) ||
-      (uri.hostname === 'nmcorp.video' && uri.pathname.startsWith('/player/'))
-    ))
+    const sitePage =
+      uri.origin === new URL(base).origin ||
+      uri.hostname === 'mat6tube.com' ||
+      uri.hostname.endsWith('.mat6tube.com');
+    if (
+      !(
+        (sitePage && watchPath(uri.href)) ||
+        (uri.hostname === 'nmcorp.video' && uri.pathname.startsWith('/player/'))
+      ) ||
+      uri.username ||
+      uri.password
+    )
       throw fail('Unsupported AdultTube URL');
     const headers = { Referer: base + '/' },
       html = await request(url, { referer: base + '/recent' });
@@ -264,18 +315,36 @@ export default function createSource(context) {
     getFilters: () => [
       {
         id: 'sort',
-        title: 'Sort by',
+        title: 'source_filter.sort',
         kind: 'sort',
         options: [
-          { value: '2', label: 'Relevance' },
-          { value: '0', label: 'Date added' },
-          { value: '1', label: 'Duration' },
+          { value: '2', label: 'source_filter.sort.relevance' },
+          { value: '0', label: 'source_filter.sort.new' },
+          { value: '1', label: 'source_filter.sort.longest' },
         ],
         defaultValues: ['2'],
+        isAvailableWithSearchTerm: true,
       },
+      {
+        id: 'len',
+        title: 'Duration',
+        kind: 'singleSelect',
+        defaultValues: ['any'],
+        isAvailableWithSearchTerm: true,
+        options: [
+          { value: 'any', label: 'source_filter.any' },
+          { value: 'short', label: 'Short' },
+          { value: 'long', label: 'Long' },
+        ],
+      },
+      { id: 'hd', title: 'HD only', kind: 'toggle', isAvailableWithSearchTerm: true },
     ],
-    getPopular: ({ page = 1 } = {}) => search({ page }),
-    getLatest: ({ page = 1 } = {}) => search({ page, selectedFilters: { sort: ['0'] } }),
+    getPopular: (args = {}) => search(args),
+    getLatest: ({ selectedFilters = {}, ...args } = {}) =>
+      search({
+        ...args,
+        selectedFilters: { ...selectedFilters, sort: [first(selectedFilters.sort?.[0], '0')] },
+      }),
     search,
     loadDetails,
     resolveStream,
