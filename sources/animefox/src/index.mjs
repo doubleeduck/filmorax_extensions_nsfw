@@ -13,7 +13,7 @@ const cardFields = {
   url: { selector: 'a.short-title,a.tc-item', attr: 'href' },
   title: { selector: 'h2', text: true },
   hint: { selector: 'a.short-title,a.tc-item', attr: 'title' },
-  image: { selector: 'img.poster', ...imageFields },
+  image: { selector: '.short-img img, img.poster', ...imageFields },
   rating: { selector: '.rate_nums', text: true },
   episodes: { selector: '.short-meta', text: true },
   genres: links('.short-cat a'),

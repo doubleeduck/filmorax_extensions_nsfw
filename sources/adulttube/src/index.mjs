@@ -30,7 +30,31 @@ const absolute = (value, base) => {
     return '';
   }
 };
+// A thumbnail from an unlisted CDN must not invalidate the whole catalogue
+// page in the host. Keep these suffixes in sync with network.imageOrigins.
+const posterHosts =
+  /(?:^|\.)(?:mat6tube\.com|noodlemagazine\.com|userapi\.com|vkuser\.net|vkuserphoto\.ru|okcdn\.ru|mycdn\.me)$/i;
+function posterUrl(values, page, base) {
+  const pageOrigin = new URL(page).origin,
+    baseOrigin = new URL(base).origin;
+  for (const value of values) {
+    const url = absolute(value, page);
+    if (!url) continue;
+    const uri = new URL(url);
+    if (
+      uri.origin === pageOrigin ||
+      uri.origin === baseOrigin ||
+      (uri.protocol === 'https:' && !uri.port && posterHosts.test(uri.hostname))
+    )
+      return url;
+  }
+  return '';
+}
 const pageSize = 24;
+const localizedSearchTerms = new Map([
+  ['hentai', 'хентай'],
+  ['хентай', 'hentai'],
+]);
 export function searchUrl(base, { searchTerm = '', selectedFilters = {} } = {}) {
   const term = text(searchTerm).normalize('NFC') || 'adult';
   if (term.length > 2048) throw fail('AdultTube search query is too long', 'invalid_argument');
@@ -43,11 +67,14 @@ export function searchUrl(base, { searchTerm = '', selectedFilters = {} } = {}) 
   return url;
 }
 const titleTags = (value) =>
-  value
-    .split(/[,/|]/)
-    .map(text)
-    .filter((v) => v.length > 2)
-    .slice(0, 4);
+  [
+    ...new Set(
+      value
+        .split(/[,/|]/)
+        .map(text)
+        .filter((v) => v.length > 2),
+    ),
+  ].slice(0, 4);
 export function watchPath(value) {
   if (!text(value)) return '';
   try {
@@ -64,17 +91,14 @@ const formatDuration = (seconds) => {
     ? `${Math.floor(minutes / 60)}:${String(minutes % 60).padStart(2, '0')}:${s}`
     : `${minutes}:${s}`;
 };
-function card(row, base) {
+function card(row, page, base) {
   const path = watchPath(row.url),
     title = first(row.title, row.image?.alt);
   if (!path || !title) return null;
-  const poster =
-    [row.image?.lazy, row.image?.src, row.image?.fallback]
-      .map((value) => absolute(value, base))
-      .find(Boolean) || '';
+  const poster = posterUrl([row.image?.lazy, row.image?.src, row.image?.fallback], page, base);
   return {
     id: 'adulttube-' + encodeURIComponent(path),
-    webUrl: new URL(path, base).href,
+    webUrl: new URL(path, page).href,
     title,
     kind: 'movie',
     subtitle: [row.duration, row.views].map(text).filter(Boolean).join(' / '),
@@ -168,9 +192,28 @@ export default function createSource(context) {
   const request = async (url, options) => (await requestPage(url, options)).html;
   async function search({ page = 1, searchTerm = '', selectedFilters = {} } = {}) {
     page = Math.max(1, Math.trunc(Number(page)) || 1);
-    const base = await origin(),
-      url = searchUrl(base, { searchTerm, selectedFilters });
-    let response = await requestPage(url.href, { referer: base + '/recent' });
+    const base = await origin();
+    let url = searchUrl(base, { searchTerm, selectedFilters }),
+      response,
+      titleMatches = [];
+    const fetchSearch = () => requestPage(url.href, { referer: base + '/recent' });
+    try {
+      response = await fetchSearch();
+    } catch (error) {
+      const term = text(searchTerm).normalize('NFC');
+      if (
+        (error?.code !== 'not_found' && error?.httpStatus !== 404) ||
+        !/^[\p{L}\p{N}]{5,}$/u.test(term)
+      )
+        throw error;
+      // Some full-word routes return 404 even though the site indexes the
+      // word. Search its prefix and keep only titles matching the full term.
+      const normalized = term.toLowerCase();
+      titleMatches = [normalized, localizedSearchTerms.get(normalized)].filter(Boolean);
+      const prefix = Array.from(term).slice(0, -1).join('');
+      url = searchUrl(base, { searchTerm: prefix, selectedFilters });
+      response = await fetchSearch();
+    }
     if (page > 1) {
       const csrf = text(
         await context.html.extract(
@@ -207,8 +250,15 @@ export default function createSource(context) {
       ),
       items = dedupe(
         array(data.cards)
-          .map((row) => card(row, response.url))
-          .filter(Boolean),
+          .map((row) => card(row, response.url, base))
+          .filter(
+            (row) =>
+              row &&
+              (!titleMatches.length ||
+                titleMatches.some((term) =>
+                  row.title.normalize('NFC').toLowerCase().includes(term),
+                )),
+          ),
         (v) => v.id,
       );
     return {
@@ -223,9 +273,9 @@ export default function createSource(context) {
     );
     if (!path) return null;
     const base = await origin(),
-      html = await request(base + path),
+      response = await requestPage(base + path),
       data = object(
-        await context.html.extract(html, {
+        await context.html.extract(response.html, {
           fields: {
             title: meta('og:title'),
             heading: { selector: 'h1', text: true },
@@ -238,7 +288,7 @@ export default function createSource(context) {
       ),
       title = first(data.title, data.heading);
     if (!title) return null;
-    const poster = absolute(data.poster, base),
+    const poster = posterUrl([data.poster], response.url, base),
       duration = Number(data.duration) || null;
     return {
       id: 'adulttube-' + encodeURIComponent(path),
@@ -271,7 +321,7 @@ export default function createSource(context) {
       ],
       relatedItems: dedupe(
         array(data.related)
-          .map((row) => card(row, base))
+          .map((row) => card(row, response.url, base))
           .filter((v) => v && v.id !== itemId),
         (v) => v.id,
       ).slice(0, 48),

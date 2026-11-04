@@ -57,23 +57,96 @@ test('Porno365 keeps the observed HTTP mirror and rejects unrelated redirects', 
     http: {
       request: async (request) => {
         requested.push(request.url);
-        return { url: 'http://4porno365.fun/', body: '<main></main>' };
+        return { url: 'http://5porno365.fun/', body: '<main></main>' };
       },
     },
     html: { extract: async () => ({ cards: [], next: [] }) },
   });
   await source.search();
   await source.search();
-  assert.equal(requested[1], 'http://4porno365.fun/');
+  assert.equal(requested[1], 'http://5porno365.fun/');
 
   const unrelated = createSource({
     baseUrl: 'https://t.porno365.golf',
     settings: { network: async () => ({ baseUrl: '' }) },
     http: {
-      request: async () => ({ url: 'http://other-porno365.fun/', body: '' }),
+      request: async () => ({ url: 'http://unrelated.example/', body: '' }),
     },
   });
   await assert.rejects(unrelated.search(), (error) => error.code === 'network');
+});
+
+test('Porno365 uses custom hosts and route prefixes for search, details and saved episodes', async () => {
+  let base = 'http://first.example/catalog';
+  const calls = [];
+  const source = createSource({
+    baseUrl: manifest.sources[0].baseUrl,
+    settings: { network: async () => ({ baseUrl: base }) },
+    http: {
+      request: async (input) => {
+        calls.push(input);
+        return {
+          url: input.url,
+          body: 'jwplayer("player_div").setup({sources: [{file: "https://vid7.vide365.com/movie.mp4"}]});',
+        };
+      },
+    },
+    html: {
+      extract: async (_body, query) =>
+        query.fields?.cards
+          ? {
+              cards: [{ url: base + '/movie/42', title: 'Fixture', image: { src: '/cover.jpg' } }],
+              next: [{ url: base + '/search/fixture/2' }],
+            }
+          : { title: 'Fixture' },
+    },
+  });
+  const result = await source.search({ searchTerm: 'fixture' });
+  assert.equal(calls[0].url, base + '/search/?q=fixture');
+  assert.equal(calls[0].headers.Origin, 'http://first.example');
+  assert.equal(result.items[0].webUrl, base + '/movie/42');
+  assert.equal(result.hasMore, true);
+  await source.search({ searchTerm: 'fixture', page: 2 });
+  assert.equal(calls[1].url, base + '/search/fixture/2');
+  const item = await source.loadDetails({ itemId: result.items[0].id });
+  const episode = item.playbackGroups[0].episodes[0];
+  base = 'https://second.example/prefix';
+  const stream = await source.resolveStream({ url: episode.url });
+  assert.equal(calls.at(-1).url, base + '/movie/42');
+  assert.equal(stream.variants[0].headers.Referer, base + '/movie/42');
+  await source.resolveStream({
+    url: 'porno365://video?url=' + encodeURIComponent('http://4porno365.fun/movie/42'),
+  });
+  assert.equal(calls.at(-1).url, base + '/movie/42');
+});
+
+test('Porno365 re-discovers a rotated HTTP mirror through the configured address', async () => {
+  const calls = [],
+    base = 'https://entry.example';
+  let mirror = 'http://5porno365.fun';
+  const source = createSource({
+    baseUrl: manifest.sources[0].baseUrl,
+    settings: { network: async () => ({ baseUrl: base }) },
+    http: {
+      request: async (input) => {
+        calls.push(input.url);
+        if (input.url.startsWith('http://5porno365.fun/') && mirror !== 'http://5porno365.fun')
+          throw Object.assign(new Error('Unavailable'), { code: 'network' });
+        return { url: mirror + '/', body: '' };
+      },
+    },
+    html: { extract: async () => ({ cards: [] }) },
+  });
+  await source.search();
+  mirror = 'http://6porno365.fun';
+  await source.search();
+  await source.search();
+  assert.deepEqual(calls, [
+    base + '/',
+    'http://5porno365.fun/',
+    base + '/',
+    'http://6porno365.fun/',
+  ]);
 });
 
 test('Porno365 reads the current JWPlayer MP4 source format', async () => {

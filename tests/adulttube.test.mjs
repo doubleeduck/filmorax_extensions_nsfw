@@ -245,6 +245,66 @@ test('empty final pages stop pagination and inline image placeholders use the si
   assert.equal(page.items[0].posterUrl, 'https://cdn.noodlemagazine.com/poster.jpg');
 });
 
+test('a full-word search 404 uses prefix pagination and returns only full-term matches', async () => {
+  const requests = [];
+  const source = createSource({
+    baseUrl: 'https://hot.mat6tube.com',
+    settings: { network: async () => ({}) },
+    http: {
+      request: async (input) => {
+        requests.push(input);
+        if (new URL(input.url).pathname.endsWith('/hentai'))
+          throw Object.assign(new Error('Missing route'), { code: 'not_found', httpStatus: 404 });
+        return { body: 'fixture', url: input.url };
+      },
+    },
+    html: {
+      extract: async (_html, query) =>
+        query.selector
+          ? 'fixture-csrf'
+          : {
+              cards: [
+                { url: '/watch/match', title: 'Hentai fixture' },
+                { url: '/watch/localized', title: 'Хентай / Хентай' },
+                { url: '/watch/other', title: 'Only the shortened prefix: henta' },
+              ],
+              more: '2',
+            },
+    },
+  });
+  const page = await source.search({
+    searchTerm: 'hentai',
+    page: 2,
+    selectedFilters: { sort: ['0'], len: ['short'], hd: ['true'] },
+  });
+  assert.deepEqual(
+    requests.map((r) => new URL(r.url).pathname),
+    ['/video/hentai', '/video/henta', '/video/henta'],
+  );
+  assert.deepEqual(Object.fromEntries(new URLSearchParams(requests[2].body)), {
+    sort: '0',
+    len: 'short',
+    hd: '1',
+    csrfmiddlewaretoken: 'fixture-csrf',
+    p: '1',
+  });
+  assert.deepEqual(
+    page.items.map((item) => item.title),
+    ['Hentai fixture', 'Хентай / Хентай'],
+  );
+  assert.deepEqual(page.items[1].tags, ['Хентай']);
+  assert.equal(page.hasMore, true);
+});
+
+test('an undeclared thumbnail CDN cannot invalidate a search result page', async () => {
+  const { source } = searchFixture({
+    image: { lazy: 'https://unlisted.example/cover.jpg', src: '/approved.jpg' },
+  });
+  const page = await source.search();
+  assert.ok(page.items.length > 0);
+  assert.ok(page.items.every((item) => new URL(item.posterUrl).pathname === '/approved.jpg'));
+});
+
 test('canonical mirror watch URLs remain natively resolvable after a search redirect', async () => {
   const requests = [];
   const source = createSource({

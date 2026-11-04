@@ -1,31 +1,50 @@
 import { text, array, object, first, dedupe, fail } from '../../../sdk/video.mjs';
 import { literalProperty } from '../../../sdk/literal.mjs';
 export const isSite = (host) => /(?:^|[.-])[a-z0-9-]*porno365(?=[.-]|$)/i.test(host);
-export function sitePath(value, pattern) {
-  if (!text(value)) return '';
+function httpUrl(value, base) {
+  if (!text(value)) return null;
   try {
-    const uri = new URL(value, 'https://t.porno365.golf');
-    if (!isSite(uri.hostname)) return '';
-    const path = decodeURI(uri.pathname).replace(/\/+$/, '') || '/';
+    const uri = new URL(value, base);
+    if (['http:', 'https:'].includes(uri.protocol) && !uri.username && !uri.password) return uri;
+  } catch {
+    // A malformed URL is not a catalogue link.
+  }
+  return null;
+}
+function isSiteUrl(uri, base) {
+  const entry = new URL(base);
+  return (
+    uri.origin === entry.origin ||
+    (uri.hostname === entry.hostname && !uri.port && !entry.port) ||
+    isSite(uri.hostname)
+  );
+}
+export function sitePath(value, pattern, base = 'https://t.porno365.golf') {
+  const uri = httpUrl(value, base + '/');
+  if (!uri || !isSiteUrl(uri, base)) return '';
+  try {
+    const prefix = decodeURI(new URL(base).pathname).replace(/\/+$/, '');
+    let path = decodeURI(uri.pathname).replace(/\/+$/, '') || '/';
+    if (prefix && path.startsWith(prefix + '/')) path = path.slice(prefix.length);
     return pattern.test(path) ? path : '';
   } catch {
     return '';
   }
 }
-const moviePath = (value) => sitePath(value, /^\/movie\/\d+$/);
-const modelPath = (value) => {
-  const path = sitePath(value, /^\/models\/[\p{L}\p{N}_-]+$/u),
+const moviePath = (value, base) => sitePath(value, /^\/movie\/\d+$/, base);
+const modelPath = (value, base) => {
+  const path = sitePath(value, /^\/models\/[\p{L}\p{N}_-]+$/u, base),
     slug = path.split('/').at(-1);
   return !path || /^(?:ru|male|all|sort-by-.*|\d+)$/.test(slug) ? '' : path;
 };
-const categoryPath = (value) => {
-  const path = sitePath(value, /^\/[\p{L}\p{N}_-]+$/u);
+const categoryPath = (value, base) => {
+  const path = sitePath(value, /^\/[\p{L}\p{N}_-]+$/u, base);
   return ['/categories', '/models', '/search', '/popular', '/toprated'].includes(path.toLowerCase())
     ? ''
     : path;
 };
-const directPath = (value) => {
-  const path = sitePath(value, /^\/(?:models|tags)\/[^/]+$|^\/[^/]+$/);
+const directPath = (value, base) => {
+  const path = sitePath(value, /^\/(?:(?:models|tags)\/)?[^/?#\\]+$/, base);
   return path.includes('..') ? '' : path;
 };
 const percent = (value) =>
@@ -60,21 +79,24 @@ const linked = (selector) => ({
   all: true,
   fields: { url: { attr: 'href' }, name: { text: true } },
 });
-const absolute = (value, origin) => (text(value) ? new URL(value, origin).href : '');
+const absolute = (value, page) => httpUrl(value, page)?.href ?? '';
 const titleTags = (value) =>
-  value
-    .split(/[,/|]/)
-    .map(text)
-    .filter((v) => v.length > 2)
-    .slice(0, 4);
-function card(row, origin) {
-  const path = moviePath(row.url),
+  [
+    ...new Set(
+      value
+        .split(/[,/|]/)
+        .map(text)
+        .filter((v) => v.length > 2),
+    ),
+  ].slice(0, 4);
+function card(row, page, base) {
+  const path = moviePath(row.url, base),
     title = first(row.image?.alt, row.title, path.split('/').at(-1));
   if (!path || !title) return null;
-  const poster = absolute(first(row.image?.lazy, row.image?.src), origin);
+  const poster = absolute(row.image?.lazy, page) || absolute(row.image?.src, page);
   return {
     id: 'porno365-' + encodeURIComponent(path),
-    webUrl: new URL(path, origin).href,
+    webUrl: new URL(base + path).href,
     title,
     subtitle: [row.duration, row.views].map(text).filter(Boolean).join(' • '),
     kind: 'movie',
@@ -86,56 +108,54 @@ function card(row, origin) {
   };
 }
 export default function createSource(context) {
-  let configured = '',
-    resolved = '',
-    filters;
-  async function origin() {
-    const base = ((await context.settings.network()).baseUrl || context.baseUrl).replace(
-      /\/+$/,
-      '',
-    );
-    if (base !== configured) {
-      configured = base;
-      resolved = '';
-      filters = null;
-    }
-    return resolved || base;
+  let current;
+  async function configuration() {
+    const override = (await context.settings.network()).baseUrl,
+      base = (override || context.baseUrl).replace(/\/+$/, '');
+    if (current?.base !== base)
+      current = { base, active: base, filters: null, overridden: Boolean(override) };
+    return current;
   }
-  async function get(path) {
-    const base = await origin();
-    let response;
+  async function get(scope, path, start = scope.active) {
+    const request = async (base) => {
+      const url = new URL(base + path).href;
+      const response = await context.http.request({
+        method: 'GET',
+        url,
+        responseType: 'text',
+        userAgentProfile: 'browser',
+        headers: { Accept: 'text/html', Referer: base + '/', Origin: new URL(base).origin },
+      });
+      const page = httpUrl(response.url || url);
+      if (!page || !isSiteUrl(page, scope.base))
+        throw fail('Porno365 mirror redirected outside its site origins', 'network');
+      const suffix = new URL(path, 'https://catalog.invalid').pathname.replace(/\/+$/, '');
+      const pathname = page.pathname.replace(/\/+$/, '');
+      const prefix = pathname.endsWith(suffix)
+        ? pathname.slice(0, pathname.length - suffix.length)
+        : '';
+      scope.active = page.origin + prefix;
+      return { html: text(response.body), page: page.href, base: scope.active };
+    };
     try {
-      response = await context.http.request({
-        method: 'GET',
-        url: base + path,
-        responseType: 'text',
-        userAgentProfile: 'browser',
-        headers: { Accept: 'text/html', Referer: base + '/', Origin: base },
-      });
+      return await request(start);
     } catch (error) {
-      if (error?.code !== 'network' || base === context.baseUrl) throw error;
-      response = await context.http.request({
-        method: 'GET',
-        url: context.baseUrl + path,
-        responseType: 'text',
-        userAgentProfile: 'browser',
-      });
+      if (
+        start === scope.base ||
+        start !== scope.active ||
+        !(['network', 'offline', 'timeout'].includes(error?.code) || error?.httpStatus >= 500)
+      )
+        throw error;
+      // Re-discover a rotated mirror through the user's configured entry URL.
+      return request(scope.base);
     }
-    const final = new URL(response.url || base + path);
-    if (
-      !isSite(final.hostname) ||
-      (final.protocol !== 'https:' && final.origin !== 'http://4porno365.fun')
-    )
-      throw fail('Porno365 mirror redirected outside its site origins', 'network');
-    resolved = final.origin;
-    return { html: text(response.body), origin: final.origin };
   }
   async function getFilters({ refresh = false } = {}) {
-    await origin();
-    if (filters && !refresh) return filters;
+    const scope = await configuration();
+    if (scope.filters && !refresh) return scope.filters;
     async function options(path, model) {
       try {
-        const { html } = await get(path),
+        const { html, base } = await get(scope, path),
           rows = array(
             await context.html.extract(html, {
               selector: model ? 'a[href*="/models/"]' : 'a.categories-link',
@@ -152,7 +172,7 @@ export default function createSource(context) {
         return dedupe(
           rows
             .map((row) => ({
-              value: model ? modelPath(row.url) : categoryPath(row.url),
+              value: model ? modelPath(row.url, base) : categoryPath(row.url, base),
               label: model ? first(row.name, row.alt) : first(row.title, row.name),
               count: Number(text(row.count).replace(/\D/g, '')) || null,
             }))
@@ -169,7 +189,7 @@ export default function createSource(context) {
       options('/categories', false),
       options('/models', true),
     ]);
-    return (filters = [
+    return (scope.filters = [
       ...[
         ['category', 'genre', categories],
         ['model', 'actor', models],
@@ -194,11 +214,17 @@ export default function createSource(context) {
     ]);
   }
   async function search({ page = 1, searchTerm = '', selectedFilters = {} } = {}) {
-    const f = selectedFilters,
+    page = Math.max(1, Math.trunc(Number(page)) || 1);
+    const scope = await configuration(),
+      f = selectedFilters,
       term = text(searchTerm),
-      base = term
+      route = term
         ? '/search/' + encodeURIComponent(term)
-        : first(directPath(f.path?.[0]), directPath(f.model?.[0]), directPath(f.category?.[0]));
+        : first(
+            directPath(f.path?.[0], scope.active),
+            directPath(f.model?.[0], scope.active),
+            directPath(f.category?.[0], scope.active),
+          );
     const sort =
         {
           popular_month: '/popular/month',
@@ -206,8 +232,11 @@ export default function createSource(context) {
           rating_month: '/toprated/month',
           rating: '/toprated',
         }[f.sort?.[0]] || '',
-      path = base + sort + (page > 1 ? '/' + page : '') || '/';
-    const { html, origin } = await get(path),
+      path =
+        term && !sort && page === 1
+          ? '/search/?' + new URLSearchParams({ q: term })
+          : route + sort + (page > 1 ? '/' + page : '') || '/';
+    const { html, page: responseUrl, base } = await get(scope, path),
       data = object(
         await context.html.extract(html, {
           fields: {
@@ -222,7 +251,7 @@ export default function createSource(context) {
       );
     const items = dedupe(
       array(data.cards)
-        .map((row) => card(row, origin))
+        .map((row) => card(row, responseUrl, base))
         .filter(Boolean),
       (v) => v.id,
     ).slice(0, 50);
@@ -231,9 +260,9 @@ export default function createSource(context) {
       hasMore:
         array(data.next).some((v) => {
           try {
-            const next = new URL(v.url, origin);
+            const next = new URL(v.url, responseUrl);
             return (
-              isSite(next.hostname) && next.pathname.replace(/\/+$/, '').endsWith('/' + (page + 1))
+              isSiteUrl(next, base) && next.pathname.replace(/\/+$/, '').endsWith('/' + (page + 1))
             );
           } catch {
             return false;
@@ -242,11 +271,16 @@ export default function createSource(context) {
     };
   }
   async function loadDetails({ itemId }) {
-    const path = moviePath(
-      decodeURIComponent(itemId.startsWith('porno365-') ? itemId.slice(9) : itemId),
-    );
+    const scope = await configuration();
+    let path;
+    try {
+      const value = decodeURIComponent(itemId.startsWith('porno365-') ? itemId.slice(9) : itemId);
+      path = moviePath(value, scope.active) || moviePath(value, scope.base);
+    } catch {
+      return null;
+    }
     if (!path) return null;
-    const { html, origin } = await get(path),
+    const { html, page, base } = await get(scope, path),
       data = object(
         await context.html.extract(html, {
           fields: {
@@ -267,7 +301,7 @@ export default function createSource(context) {
         }),
       );
     const title = first(data.title, data.heading, path.split('/').at(-1)),
-      poster = absolute(data.poster, origin),
+      poster = absolute(data.poster, page),
       iso = /PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/.exec(text(data.iso));
     const duration =
         Number(data.duration) ||
@@ -276,7 +310,7 @@ export default function createSource(context) {
     const linkedRows = (key) =>
         dedupe(
           array(data[key])
-            .map((v) => ({ name: text(v.name), path: sitePath(v.url, /^\/.+$/) }))
+            .map((v) => ({ name: text(v.name), path: directPath(v.url, base) }))
             .filter((v) => v.name && v.path),
           (v) => v.path,
         ),
@@ -297,10 +331,10 @@ export default function createSource(context) {
           filterValue: row.path,
         });
     const url = new URL('porno365://video');
-    url.searchParams.set('url', origin + path);
+    url.searchParams.set('path', path);
     return {
       id: 'porno365-' + encodeURIComponent(path),
-      webUrl: new URL(path, origin).href,
+      webUrl: page,
       title,
       subtitle: duration == null ? '' : formatDuration(duration),
       overview: first(data.description, data.summary),
@@ -328,27 +362,24 @@ export default function createSource(context) {
       ],
       relatedItems: dedupe(
         array(data.related)
-          .map((v) => card(v, origin))
+          .map((v) => card(v, page, base))
           .filter((v) => v && v.id !== itemId),
         (v) => v.id,
       ).slice(0, 12),
     };
   }
   async function resolveStream({ url }) {
-    const input = new URL(url),
-      page = new URL(input.protocol === 'porno365:' ? input.searchParams.get('url') : url);
-    if (!isSite(page.hostname) || !moviePath(page.href)) throw fail('Unsupported Porno365 URL');
-    const html = text(
-        (
-          await context.http.request({
-            method: 'GET',
-            url: page.href,
-            responseType: 'text',
-            userAgentProfile: 'browser',
-            headers: { Referer: page.origin + '/', Origin: page.origin },
-          })
-        ).body,
-      ),
+    const scope = await configuration(),
+      input = new URL(url),
+      wrapped = input.protocol === 'porno365:' && input.hostname === 'video',
+      value = wrapped ? first(input.searchParams.get('path'), input.searchParams.get('url')) : url,
+      path = moviePath(value, scope.active) || moviePath(value, scope.base);
+    if (!path) throw fail('Unsupported Porno365 URL');
+    // Saved episodes are resolved on the current mirror, including after a
+    // custom address changes. Legacy direct links still work without an override.
+    const start =
+      !wrapped && !scope.overridden && scope.active === scope.base ? input.origin : scope.active;
+    const { html, page } = await get(scope, path, start),
       data = object(
         await context.html.extract(html, {
           fields: {
@@ -357,7 +388,7 @@ export default function createSource(context) {
           },
         }),
       ),
-      headers = { Referer: page.href, Origin: page.origin };
+      headers = { Referer: page, Origin: new URL(page).origin };
     const rows = array(literalProperty(html, 'sources')),
       fallback = first(data.og, data.content);
     if (fallback) rows.push({ file: fallback });
