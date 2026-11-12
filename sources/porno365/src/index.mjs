@@ -406,22 +406,29 @@ export default function createSource(context) {
         }),
       ),
       headers = { Referer: page, Origin: new URL(page).origin };
-    const rows = array(literalProperty(html, 'sources')),
-      fallback = first(data.og, data.content);
-    if (fallback) rows.push({ file: fallback });
+    const allowedStream = (value) => {
+      const uri = httpUrl(value);
+      return (
+        uri &&
+        uri.protocol === 'https:' &&
+        !uri.port &&
+        /(?:^|\.)(?:vide365\.com|vidb365\.com)$/i.test(uri.hostname)
+      );
+    };
+    const rows = array(literalProperty(html, 'sources')).filter((row) => allowedStream(row?.file));
+    const fallback = first(data.og, data.content);
+    if (!rows.length && allowedStream(fallback)) rows.push({ file: fallback });
     const variants = dedupe(
-      rows
-        .filter((v) => /^https:\/\//.test(text(v.file)))
-        .map((v) => ({
-          quality:
-            /\d{3,4}/.exec(text(v.label))?.[0] ??
-            /(?:_|\/)(\d{3,4})p(?:[_.?/]|$)/.exec(v.file)?.[1] ??
-            'auto',
-          url: v.file,
-          mimeType: 'video/mp4',
-          headers,
-          isPreferred: v.default === true,
-        })),
+      rows.map((v) => ({
+        quality:
+          /\d{3,4}/.exec(text(v.label))?.[0] ??
+          /(?:_|\/)(\d{3,4})p(?:[_.?/]|$)/.exec(v.file)?.[1] ??
+          'auto',
+        url: v.file,
+        mimeType: 'video/mp4',
+        headers,
+        isPreferred: v.default === true,
+      })),
       (v) => v.url,
     );
     if (!variants.length)

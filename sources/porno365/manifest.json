@@ -50,7 +50,7 @@
           "https://vidb365.com",
           "https://pic.vidb365.com"
         ],
-        "streamOrigins": ["https://vide365.com"],
+        "streamOrigins": ["https://vide365.com", "https://vidb365.com"],
         "methods": ["GET"],
         "maxConcurrentRequests": 4,
         "allowUserBaseUrl": true,

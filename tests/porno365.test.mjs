@@ -198,3 +198,29 @@ test('recommendations contain a playable episode even before details are loaded'
   assert.equal(new URL(episode.url).searchParams.get('path'), '/movie/42');
   assert.equal((await source.resolveStream({ url: episode.url })).variants.length, 1);
 });
+
+test('recommended videos keep approved CDN qualities and discard unrelated video metadata', async () => {
+  const definition = manifest.sources[0];
+  assert.ok(definition.network.streamOrigins.includes('https://vide365.com'));
+  assert.ok(definition.network.streamOrigins.includes('https://vidb365.com'));
+  const source = createSource({
+    baseUrl: definition.baseUrl,
+    settings: { network: async () => ({}) },
+    http: {
+      request: async (input) => ({
+        url: input.url,
+        body: `setup({sources:[
+          {file:"https://cdn365v.vidb365.com/video.mp4",label:"720p"},
+          {file:"https://vid7.vide365.com/video.mp4",label:"480p"},
+          {file:"https://unknown.example/video.mp4",label:"360p"}
+        ]})`,
+      }),
+    },
+    html: { extract: async () => ({ og: 'https://cb.vide365.com/not-a-video' }) },
+  });
+  const stream = await source.resolveStream({ url: 'porno365://video?path=%2Fmovie%2F42' });
+  assert.deepEqual(
+    stream.variants.map((row) => new URL(row.url).hostname),
+    ['cdn365v.vidb365.com', 'vid7.vide365.com'],
+  );
+});
