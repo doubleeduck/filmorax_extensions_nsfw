@@ -293,7 +293,8 @@ export default function createSource(context) {
         title: 'source_filter.sort',
         kind: 'sort',
         defaultValues: ['relevance'],
-        options: ['relevance', 'views', 'rating', 'date', 'duration'].map((value) => ({
+        isAvailableWithSearchTerm: true,
+        options: ['relevance', 'views', 'rating', 'date'].map((value) => ({
           value,
           label:
             value === 'duration'
@@ -320,11 +321,18 @@ export default function createSource(context) {
   }
   async function search({ page = 1, searchTerm = '', selectedFilters = {} } = {}) {
     const term = text(searchTerm),
-      f = selectedFilters;
-    if (!term) return catalog(paged(sitePath(f.category?.[0], true) || '/best/weekly', page));
+      f = selectedFilters,
+      sort = text(f.sort?.[0]);
+    if (!term) {
+      const category = sitePath(f.category?.[0], true);
+      const route = { views: '/most-viewed', rating: '/best', date: '/newest' }[sort];
+      return catalog(paged(category ? category + (route || '') : route || '/best/weekly', page));
+    }
     const params = {
       ...(page > 1 ? { page } : {}),
-      ...(text(f.sort?.[0]) && f.sort[0] !== 'relevance' ? { sort: f.sort[0] } : {}),
+      ...({ views: 'views', rating: 'best', date: 'newest', duration: 'longest' }[sort]
+        ? { sort: { views: 'views', rating: 'best', date: 'newest', duration: 'longest' }[sort] }
+        : {}),
     };
     return catalog('/search/' + encodeURIComponent(term), params);
   }

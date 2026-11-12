@@ -170,3 +170,31 @@ test('Porno365 reads the current JWPlayer MP4 source format', async () => {
   assert.equal(result.variants[0].quality, '1080');
   assert.equal(result.variants[0].mimeType, 'video/mp4');
 });
+
+test('recommendations contain a playable episode even before details are loaded', async () => {
+  const source = createSource({
+    baseUrl: 'https://t.porno365.golf',
+    settings: { network: async () => ({}) },
+    http: {
+      request: async (input) => ({
+        url: input.url,
+        body: 'setup({sources:[{file:"https://vid7.vide365.com/movie.mp4"}]})',
+      }),
+    },
+    html: {
+      extract: async (_html, query) =>
+        query.fields?.related
+          ? {
+              title: 'Current',
+              related: [{ url: '/movie/42', title: 'Related', image: { src: '/cover.jpg' } }],
+            }
+          : {},
+    },
+  });
+  const details = await source.loadDetails({ itemId: 'porno365-%2Fmovie%2F1' });
+  const related = details.relatedItems[0];
+  assert.equal(related.id, 'porno365-%2Fmovie%2F42');
+  const episode = related.playbackGroups[0].episodes[0];
+  assert.equal(new URL(episode.url).searchParams.get('path'), '/movie/42');
+  assert.equal((await source.resolveStream({ url: episode.url })).variants.length, 1);
+});

@@ -155,6 +155,18 @@ export default function createSource(context) {
           kind: 'singleSelect',
           options: [{ value: '', label: 'source_filter.any' }, ...rows],
         })),
+      {
+        id: 'sort',
+        title: 'source_filter.sort',
+        kind: 'sort',
+        defaultValues: ['recent'],
+        isAvailableWithSearchTerm: true,
+        options: [
+          { value: 'recent', label: 'source_filter.sort.new' },
+          { value: 'title_asc', label: 'A–Z (current page)' },
+          { value: 'title_desc', label: 'Z–A (current page)' },
+        ],
+      },
     ]);
   }
   async function search({ page = 1, searchTerm = '', selectedFilters = {} } = {}) {
@@ -194,6 +206,10 @@ export default function createSource(context) {
         .filter(Boolean),
       (v) => v.id,
     ).slice(0, 30);
+    if (f.sort?.[0] === 'title_asc' || f.sort?.[0] === 'title_desc') {
+      const direction = f.sort[0] === 'title_asc' ? 1 : -1;
+      items.sort((a, b) => direction * a.title.localeCompare(b.title));
+    }
     return {
       items,
       hasMore:

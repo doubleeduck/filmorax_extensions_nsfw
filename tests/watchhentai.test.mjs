@@ -6,6 +6,7 @@ import {
   queryVariants,
   isLocalPlayer,
 } from '../sources/watchhentai/src/player.mjs';
+import createSource from '../sources/watchhentai/src/index.mjs';
 const encode = (value) =>
   Buffer.from(
     [...Buffer.from(Buffer.from(value).toString('base64')).reverse()].map(
@@ -39,4 +40,45 @@ test('WatchHentai quality URL expansion keeps signatures and only uses local pla
     isLocalPlayer(new URL('https://ads.example/player/1'), 'https://watchhentai.net'),
     false,
   );
+});
+
+test('WatchHentai sorts each returned page without losing the query or taxonomy path', async () => {
+  const requests = [];
+  const source = createSource({
+    baseUrl: 'https://watchhentai.net',
+    settings: { network: async () => ({}) },
+    http: {
+      request: async (input) => {
+        requests.push(input.url);
+        return { body: '' };
+      },
+    },
+    html: {
+      extract: async () => ({
+        primary: [
+          { url: '/series/z/', name: 'Zulu' },
+          { url: '/series/a/', name: 'Alpha' },
+        ],
+        next: [{ name: '3', url: '/genre/example/page/3/' }],
+      }),
+    },
+  });
+  const args = { page: 2, selectedFilters: { genre: ['example'], sort: ['title_asc'] } };
+  const page = await source.search(args);
+  assert.deepEqual(
+    page.items.map((row) => row.title),
+    ['Alpha', 'Zulu'],
+  );
+  assert.equal(page.hasMore, true);
+  assert.equal(new URL(requests.at(-1)).pathname, '/genre/example/page/2/');
+  const reverse = await source.search({
+    ...args,
+    searchTerm: 'query',
+    selectedFilters: { sort: ['title_desc'] },
+  });
+  assert.deepEqual(
+    reverse.items.map((row) => row.title),
+    ['Zulu', 'Alpha'],
+  );
+  assert.equal(new URL(requests.at(-1)).searchParams.get('s'), 'query');
 });

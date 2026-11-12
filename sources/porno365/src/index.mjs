@@ -89,13 +89,16 @@ const titleTags = (value) =>
         .filter((v) => v.length > 2),
     ),
   ].slice(0, 4);
-function card(row, page, base) {
+function card(row, page, base, playable = false) {
   const path = moviePath(row.url, base),
     title = first(row.image?.alt, row.title, path.split('/').at(-1));
   if (!path || !title) return null;
   const poster = absolute(row.image?.lazy, page) || absolute(row.image?.src, page);
+  const id = 'porno365-' + encodeURIComponent(path);
+  const url = new URL('porno365://video');
+  url.searchParams.set('path', path);
   return {
-    id: 'porno365-' + encodeURIComponent(path),
+    id,
     webUrl: new URL(base + path).href,
     title,
     subtitle: [row.duration, row.views].map(text).filter(Boolean).join(' • '),
@@ -105,6 +108,20 @@ function card(row, page, base) {
     backdropUrl: poster,
     isNsfw: true,
     tags: titleTags(title),
+    ...(playable
+      ? {
+          playbackGroups: [
+            {
+              id: id + '-porno365',
+              playerId: 'porno365',
+              playerLabel: 'Porno365',
+              title: 'Porno365',
+              subtitle: 'Direct MP4',
+              episodes: [{ id: id + '-video', title, number: '1', url: url.href }],
+            },
+          ],
+        }
+      : {}),
   };
 }
 export default function createSource(context) {
@@ -362,7 +379,7 @@ export default function createSource(context) {
       ],
       relatedItems: dedupe(
         array(data.related)
-          .map((v) => card(v, page, base))
+          .map((v) => card(v, page, base, true))
           .filter((v) => v && v.id !== itemId),
         (v) => v.id,
       ).slice(0, 12),

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { decipherUrl } from '../sources/xhamster/src/decipher.mjs';
-import { nativeVariants, sitePath } from '../sources/xhamster/src/index.mjs';
+import createSource, { nativeVariants, sitePath } from '../sources/xhamster/src/index.mjs';
 test('xHamster decrypts current native URL and keeps H264 HLS without duplicate codecs or blocked MP4', () => {
   const vector =
     '072fe2213e3f660483e05f517428b6f1769655d44a99ad0278debdce882098ea5311b7a57baa269c20431265a27525f6b034abf78f9559fa478bbc560e6a34541978f24555c4b81cee8e1ee397ac74e434aba42f5be47a98bbd125345700ec7b439449f10c973a46ffd490c0b670ae4d546abdd4ad4cf785e224cccadcce3aaf20b762bd6e4929b471c1e43e4c388ff33b2de83de5a3757f14497f93e88b5ceed9e6ab7590cfcd82afb326448e87f64a56b522b020baa3ba559a06c3';
@@ -31,4 +31,37 @@ test('xHamster decrypts current native URL and keeps H264 HLS without duplicate 
   assert.equal(result[0].quality, 'auto');
   assert.equal(sitePath('https://ads.example/videos/example-1'), '');
   assert.equal(sitePath('/categories/drama', true), '/categories/drama');
+});
+
+test('xHamster applies supported sort routes to the catalogue, category and search pages', async () => {
+  const calls = [];
+  const source = createSource({
+    baseUrl: 'https://xhamster.com',
+    settings: { network: async () => ({}) },
+    http: {
+      request: async (input) => {
+        calls.push(new URL(input.url));
+        return { body: '' };
+      },
+    },
+    html: { extract: async () => [] },
+  });
+  const filters = await source.getFilters();
+  assert.equal(filters.find((filter) => filter.id === 'sort').isAvailableWithSearchTerm, true);
+  for (const [sort, route, searchSort] of [
+    ['views', '/most-viewed', 'views'],
+    ['rating', '/best', 'best'],
+    ['date', '/newest', 'newest'],
+  ]) {
+    await source.search({ page: 2, selectedFilters: { sort: [sort] } });
+    assert.equal(calls.at(-1).pathname, route + '/2');
+    await source.search({
+      page: 2,
+      selectedFilters: { category: ['/categories/amateur'], sort: [sort] },
+    });
+    assert.equal(calls.at(-1).pathname, '/categories/amateur' + route + '/2');
+    await source.search({ page: 2, searchTerm: 'example', selectedFilters: { sort: [sort] } });
+    assert.equal(calls.at(-1).searchParams.get('sort'), searchSort);
+    assert.equal(calls.at(-1).searchParams.get('page'), '2');
+  }
 });
