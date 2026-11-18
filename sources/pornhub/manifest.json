@@ -1,0 +1,60 @@
+{
+  "schemaVersion": 1,
+  "sourceApiVersion": 1,
+  "minRuntimeAbi": 1,
+  "id": "filmorax.source.pornhub",
+  "name": "Pornhub",
+  "description": "Pornhub catalogue, search, categories and native streams",
+  "version": "1.0.0",
+  "minAppVersion": "1.0.0",
+  "publisherKeyId": "filmorax.sources.nsfw",
+  "entrypoint": "src/index.mjs",
+  "permissions": ["http", "html"],
+  "sources": [
+    {
+      "id": "pornhub",
+      "name": "Pornhub",
+      "description": "Pornhub",
+      "language": "international",
+      "category": "movies",
+      "baseUrl": "https://www.pornhub.com",
+      "isNsfw": true,
+      "supportsTorrentSearch": false,
+      "capabilities": [
+        "catalog",
+        "search",
+        "filters",
+        "metadata",
+        "playbackGroups",
+        "recommendations",
+        "streams"
+      ],
+      "network": {
+        "origins": ["https://www.pornhub.com", "https://pornhub.com"],
+        "imageOrigins": ["https://phncdn.com", "https://pornhub.com"],
+        "streamOrigins": ["https://phncdn.com"],
+        "methods": ["GET"],
+        "userAgentProfile": "browser",
+        "maxConcurrentRequests": 4,
+        "allowSubdomains": true
+      },
+      "presentation": {
+        "icon": "assets/icon.png",
+        "directPlayback": true,
+        "artworkLayout": "landscape"
+      }
+    }
+  ],
+  "resolvers": [
+    {
+      "id": "pornhub.streams",
+      "sourceId": "pornhub",
+      "schemes": ["https"],
+      "origins": ["https://pornhub.com"]
+    }
+  ],
+  "contributions": {
+    "hostFeatures": []
+  },
+  "files": {}
+}
