@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import createSource from '../sources/pornhub/src/index.mjs';
+import manifest from '../sources/pornhub/manifest.json' with { type: 'json' };
 
 const baseUrl = 'https://www.pornhub.com';
 const media = [
@@ -61,7 +62,8 @@ function fixture(player = {}) {
               key: 'phabcdef',
               title: 'Example',
               lazy: 'https://unrelated.example/a.jpg',
-              image: '//pix-fl.phncdn.com/approved.jpg',
+              medium: '//pix-cdn77.phncdn.com/approved.jpg',
+              image: 'data:image/gif;base64,placeholder',
             },
             { key: 'phabcdef', title: 'Duplicate' },
             { key: '../bad=', title: 'Invalid key' },
@@ -96,7 +98,8 @@ test('Pornhub catalogue and paged search retain their sorting and validate poste
   assert.equal(url.searchParams.get('page'), '2');
   assert.equal(result.hasMore, true);
   assert.equal(result.items.length, 1);
-  assert.equal(result.items[0].posterUrl, 'https://pix-fl.phncdn.com/approved.jpg');
+  assert.equal(result.items[0].posterUrl, 'https://pix-cdn77.phncdn.com/approved.jpg');
+  assert.equal(manifest.sources[0].presentation.imageHeaders.Referer, '{baseOrigin}/');
 });
 
 test('Pornhub details and recommendations lead to validated native HLS and MP4', async () => {
@@ -133,4 +136,64 @@ test('Pornhub respects unavailable playback and rejects foreign video links', as
   assert.deepEqual(details.playbackGroups, []);
   await assert.rejects(source.resolveStream({ url: details.webUrl }), { code: 'access_denied' });
   assert.equal(calls.length, 2);
+});
+
+test('a Gone HLS playlist is replaced by the public embed for the same video', async () => {
+  const calls = [];
+  const pageUrl = baseUrl + '/view_video.php?viewkey=phabcdef';
+  const embedUrl = baseUrl + '/embed/phabcdef';
+  const expired = 'https://hv-h.phncdn.com/720.m3u8';
+  const working = 'https://ee-h.phncdn.com/480.m3u8';
+  const source = createSource({
+    baseUrl,
+    http: {
+      request: async ({ url, headers }) => {
+        calls.push(url);
+        if (url === expired)
+          throw Object.assign(new Error('Gone'), { code: 'invalid_response', httpStatus: 410 });
+        if (url === working) return { status: 200, body: '#EXTM3U\n' };
+        if (url === embedUrl) {
+          assert.equal(headers.Referer, pageUrl);
+          return {
+            url,
+            body: `var flashvars = {mediaDefinitions:[{format:'hls',quality:'480',videoUrl:'${working}'}]};`,
+          };
+        }
+        assert.equal(url, pageUrl);
+        return {
+          url,
+          body: `var flashvars_123 = {mediaDefinitions:[{format:'hls',quality:'720',videoUrl:'${expired}'}]};`,
+        };
+      },
+    },
+  });
+  const { variants } = await source.resolveStream({ url: pageUrl });
+  assert.deepEqual(calls, [pageUrl, expired, embedUrl, working]);
+  assert.deepEqual(
+    variants.map(({ url, isPreferred, headers }) => [url, isPreferred, headers.Referer]),
+    [[working, true, embedUrl]],
+  );
+});
+
+test('Pornhub tries its mobile page when the public embed supplies no stream', async () => {
+  const page = baseUrl + '/view_video.php?viewkey=phabcdef';
+  const gone = 'https://hv-h.phncdn.com/720.m3u8';
+  const working = 'https://em-h.phncdn.com/720.m3u8';
+  const flashvars = (url) =>
+    `var flashvars_123 = {mediaDefinitions:[{format:'hls',quality:'720',videoUrl:'${url}'}]};`;
+  const source = createSource({
+    baseUrl,
+    http: {
+      request: async ({ url, userAgentProfile }) => {
+        if (url === gone) return { status: 410 };
+        if (url === working) return { status: 200, body: '#EXTM3U\n' };
+        if (url === baseUrl + '/embed/phabcdef') return { url, body: '<html></html>' };
+        assert.equal(url, page);
+        return { url, body: flashvars(userAgentProfile === 'mobileSafari' ? working : gone) };
+      },
+    },
+  });
+  const { variants } = await source.resolveStream({ url: page });
+  assert.equal(variants.length, 1);
+  assert.equal(variants[0].url, working);
 });

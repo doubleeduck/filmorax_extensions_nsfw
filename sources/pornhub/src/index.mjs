@@ -12,13 +12,15 @@ const siteSorts = new Map([
   ['lg', 'source_filter.sort.longest'],
 ]);
 const cardSelector = 'li.videoblock[data-video-vkey]';
+const thumbnailSelector = '.phimage img, img.thumb, a[href*="view_video.php"] img';
 const cardFields = {
   key: { attr: 'data-video-vkey' },
   title: { selector: '.title a', text: true },
   titleHint: { selector: '.title a', attr: 'title' },
-  thumbnail: { selector: '.phimage img, img.thumb', attr: 'data-thumb_url' },
-  lazy: { selector: '.phimage img, img.thumb', attr: 'data-src' },
-  image: { selector: '.phimage img, img.thumb', attr: 'src' },
+  thumbnail: { selector: thumbnailSelector, attr: 'data-thumb_url' },
+  medium: { selector: thumbnailSelector, attr: 'data-mediumthumb' },
+  lazy: { selector: thumbnailSelector, attr: 'data-src' },
+  image: { selector: thumbnailSelector, attr: 'src' },
   duration: { selector: '.duration', text: true },
   views: { selector: '.views', text: true },
 };
@@ -57,7 +59,7 @@ function cards(rows, base, excluded = '') {
       const key = text(row.key);
       const title = first(row.title, row.titleHint);
       if (!viewKey.test(key) || !title || key === excluded) return [];
-      const poster = posterUrl(base, row.thumbnail, row.lazy, row.image);
+      const poster = posterUrl(base, row.thumbnail, row.medium, row.lazy, row.image);
       return [
         {
           id: 'pornhub-' + key,
@@ -76,24 +78,36 @@ function cards(rows, base, excluded = '') {
 }
 
 function playerData(html) {
-  const match = /\bflashvars_\d+\s*=\s*(?=\{)/.exec(html);
+  const match = /\bflashvars(?:_\d+)?\s*=\s*(?=\{)/.exec(html);
   return match ? object(parseLiteral(html, match.index + match[0].length)) : {};
 }
 const isUnavailable = (player) =>
   [player.video_unavailable, player.video_unavailable_country].some(
     (value) => value === true || value === 'true',
   );
+const hlsMime = 'application/vnd.apple.mpegurl';
+const critical = (error) =>
+  ['cancelled', 'permission_denied', 'resource_limit', 'auth_session_changed'].includes(
+    error?.code,
+  );
 
 export default function createSource(context) {
   const base = context.baseUrl;
   let categories;
-  async function request(url, responseType = 'text', referer = base + '/', timeoutMs = 12000) {
+  async function request(
+    url,
+    responseType = 'text',
+    referer = base + '/',
+    timeoutMs = 12000,
+    userAgentProfile = 'browser',
+  ) {
     const target = new URL(url, base).href;
     const response = await context.http.request({
       method: 'GET',
       url: target,
       responseType,
       timeoutMs,
+      userAgentProfile,
       headers: {
         Accept: responseType === 'json' ? 'application/json' : 'text/html',
         Referer: referer,
@@ -250,11 +264,7 @@ export default function createSource(context) {
       relatedItems: cards(data.related, page, key).slice(0, 24),
     };
   }
-  async function resolveStream({ url } = {}) {
-    const key = keyFromUrl(url);
-    if (!key) throw fail('Unsupported Pornhub video URL');
-    const target = videoUrl(base, key);
-    const response = await request(target);
+  async function readVariants(response, target) {
     const page = response.url || target;
     const player = playerData(text(response.body));
     if (isUnavailable(player))
@@ -265,11 +275,7 @@ export default function createSource(context) {
       const uri = httpsUrl(row?.videoUrl, page);
       if (!uri || !cdnHost.test(uri.hostname)) return;
       const path = uri.pathname.toLowerCase();
-      const mimeType = path.endsWith('.m3u8')
-        ? 'application/vnd.apple.mpegurl'
-        : path.endsWith('.mp4')
-          ? 'video/mp4'
-          : '';
+      const mimeType = path.endsWith('.m3u8') ? hlsMime : path.endsWith('.mp4') ? 'video/mp4' : '';
       if (!mimeType) return;
       const quality = text(row.quality);
       variants.push({
@@ -290,11 +296,68 @@ export default function createSource(context) {
         const result = await request(apiUrl.href, 'json', page, 3000);
         for (const row of array(result.body)) add(row);
       } catch (error) {
-        if (
-          !variants.length ||
-          ['cancelled', 'permission_denied', 'resource_limit'].includes(error?.code)
-        )
-          throw error;
+        if (!variants.length || critical(error)) throw error;
+      }
+    }
+    return dedupe(variants, (row) => row.url);
+  }
+  async function playlistGone(variant) {
+    try {
+      const response = await context.http.request({
+        method: 'GET',
+        url: variant.url,
+        responseType: 'text',
+        timeoutMs: 2500,
+        headers: variant.headers,
+      });
+      return response.status === 404 || response.status === 410;
+    } catch (error) {
+      if (critical(error)) throw error;
+      return error?.httpStatus === 404 || error?.httpStatus === 410;
+    }
+  }
+  const preferredHls = (variants) =>
+    variants.find((row) => row.mimeType === hlsMime && row.isPreferred) ??
+    variants.find((row) => row.mimeType === hlsMime);
+
+  async function alternativeVariants(url, referer, profile) {
+    try {
+      const response = await request(url, 'text', referer, 5000, profile);
+      const variants = await readVariants(response, url);
+      const candidate = preferredHls(variants);
+      if (candidate && (await playlistGone(candidate)))
+        return variants.filter((row) => row.mimeType !== hlsMime);
+      return variants;
+    } catch (error) {
+      if (critical(error)) throw error;
+      return [];
+    }
+  }
+
+  async function resolveStream({ url } = {}) {
+    const key = keyFromUrl(url);
+    if (!key) throw fail('Unsupported Pornhub video URL');
+    const target = videoUrl(base, key);
+    const response = await request(target);
+    let variants = await readVariants(response, target);
+    const preferred = preferredHls(variants);
+    if (preferred && (await playlistGone(preferred))) {
+      variants = variants.filter((row) => row !== preferred);
+      // The site's public embed can return fresh signed URLs on another CDN.
+      const page = response.url || target;
+      const embed = new URL('/embed/' + key, page).href;
+      let alternative = await alternativeVariants(embed, page);
+      if (!alternative.length)
+        alternative = await alternativeVariants(page, new URL(page).origin + '/', 'mobileSafari');
+      if (alternative.length) {
+        const servedQualities = new Set(alternative.map((row) => row.quality));
+        const defaultVariant = alternative.find((row) => row.isPreferred) ?? alternative[0];
+        variants = [
+          ...alternative.map((row) => ({ ...row, isPreferred: row === defaultVariant })),
+          ...variants
+            .filter((row) => row.mimeType !== hlsMime || !servedQualities.has(row.quality))
+            .map((row) => ({ ...row, isPreferred: false })),
+        ];
       }
     }
     if (!variants.length)

@@ -41,7 +41,11 @@
       "presentation": {
         "icon": "assets/icon.png",
         "directPlayback": true,
-        "artworkLayout": "landscape"
+        "artworkLayout": "landscape",
+        "imageHeaders": {
+          "Accept": "image/jpeg,image/png,*/*;q=0.5",
+          "Referer": "{baseOrigin}/"
+        }
       }
     }
   ],
