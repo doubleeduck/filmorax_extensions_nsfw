@@ -31,10 +31,13 @@
         "headers",
         "mirrors"
       ],
-      "parameters": {},
+      "parameters": {
+        "fallbackBaseUrl": "http://7porno365.fun"
+      },
       "network": {
         "origins": [
           "https://t.porno365.golf",
+          "http://7porno365.fun",
           "http://5porno365.fun",
           "http://4porno365.fun",
           "https://porno365.plus",
@@ -44,11 +47,13 @@
         ],
         "imageOrigins": [
           "https://t.porno365.golf",
+          "http://7porno365.fun",
           "http://5porno365.fun",
           "https://porno365.plus",
           "https://porno365.golf",
           "https://vidb365.com",
-          "https://pic.vidb365.com"
+          "https://pic.vidb365.com",
+          "https://pic.vidd365.com"
         ],
         "streamOrigins": ["https://vide365.com", "https://vidb365.com"],
         "methods": ["GET"],
@@ -77,6 +82,7 @@
       "schemes": ["porno365", "https", "http"],
       "origins": [
         "https://t.porno365.golf",
+        "http://7porno365.fun",
         "http://5porno365.fun",
         "http://4porno365.fun",
         "https://porno365.plus",

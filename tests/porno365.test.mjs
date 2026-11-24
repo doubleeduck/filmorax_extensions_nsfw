@@ -31,7 +31,15 @@ test('Porno365 uses the requested mirror and follows a labelled next-page link',
                   {
                     url: 'http://4porno365.fun/movie/51016',
                     title: 'Example title',
-                    image: { src: 'https://pic.vidb365.com/poster.webp' },
+                    image: {
+                      lazy: 'https://unknown.example/poster.jpg',
+                      src: 'http://pic.vidd365.com/poster.jpg',
+                    },
+                  },
+                  {
+                    url: '/movie/51017',
+                    title: 'Another title',
+                    image: { src: 'https://unknown.example/poster.jpg' },
                   },
                 ],
                 next: [{ url: 'http://4porno365.fun/2', label: 'Показать еще' }],
@@ -43,9 +51,13 @@ test('Porno365 uses the requested mirror and follows a labelled next-page link',
   assert.ok(definition.network.origins.includes(definition.baseUrl));
   assert.ok(definition.network.origins.includes('http://4porno365.fun'));
   assert.ok(manifest.resolvers[0].origins.includes('http://4porno365.fun'));
+  assert.ok(definition.network.imageOrigins.includes('https://pic.vidd365.com'));
   const result = await source.getLatest();
   assert.equal(requests[0], 'https://t.porno365.golf/');
-  assert.equal(result.items.length, 1);
+  assert.deepEqual(
+    result.items.map((item) => item.posterUrl),
+    ['https://pic.vidd365.com/poster.jpg', ''],
+  );
   assert.equal(result.hasMore, true);
 });
 
@@ -149,6 +161,42 @@ test('Porno365 re-discovers a rotated HTTP mirror through the configured address
   ]);
 });
 
+test('Porno365 keeps the exact route when a stale override and the main entry fail', async () => {
+  const definition = manifest.sources[0];
+  const backup = definition.parameters.fallbackBaseUrl;
+  const stale = 'http://5porno365.fun';
+  const calls = [];
+  const source = createSource({
+    baseUrl: definition.baseUrl,
+    parameters: definition.parameters,
+    settings: { network: async () => ({ baseUrl: stale }) },
+    http: {
+      request: async ({ url }) => {
+        calls.push(url);
+        if (url.startsWith(stale)) return { url: stale + '/', body: '<main>Old mirror</main>' };
+        if (url.startsWith(definition.baseUrl))
+          throw Object.assign(new Error('Unavailable'), { code: 'timeout' });
+        return {
+          url,
+          body: 'setup({sources:[{file:"//vid7.vide365.com/movie.mp4"}]})',
+        };
+      },
+    },
+    html: { extract: async () => ({}) },
+  });
+  const url = 'porno365://video?path=%2Fmovie%2F42';
+  const stream = await source.resolveStream({ url });
+  assert.deepEqual(
+    calls,
+    [stale, definition.baseUrl, backup].map((base) => base + '/movie/42'),
+  );
+  assert.equal(stream.variants[0].url, 'https://vid7.vide365.com/movie.mp4');
+  assert.equal(stream.variants[0].headers.Referer, backup + '/movie/42');
+  await source.resolveStream({ url });
+  assert.equal(calls.length, 4);
+  assert.equal(calls.at(-1), backup + '/movie/42');
+});
+
 test('Porno365 reads the current JWPlayer MP4 source format', async () => {
   let requested;
   const source = createSource({
@@ -223,4 +271,20 @@ test('recommended videos keep approved CDN qualities and discard unrelated video
     stream.variants.map((row) => new URL(row.url).hostname),
     ['cdn365v.vidb365.com', 'vid7.vide365.com'],
   );
+});
+
+test('Porno365 skips a non-MP4 metadata link in favor of an approved direct video', async () => {
+  const source = createSource({
+    baseUrl: manifest.sources[0].baseUrl,
+    settings: { network: async () => ({}) },
+    http: { request: async ({ url }) => ({ url, body: '' }) },
+    html: {
+      extract: async () => ({
+        og: 'https://cb.vide365.com/player.html',
+        content: 'https://cb.vidb365.com/video.mp4?token=fixture',
+      }),
+    },
+  });
+  const { variants } = await source.resolveStream({ url: 'porno365://video?path=%2Fmovie%2F42' });
+  assert.equal(variants[0].url, 'https://cb.vidb365.com/video.mp4?token=fixture');
 });

@@ -31,7 +31,8 @@ export function sitePath(value, pattern, base = 'https://t.porno365.golf') {
     return '';
   }
 }
-const moviePath = (value, base) => sitePath(value, /^\/movie\/\d+$/, base);
+const movieRoute = /^\/movie\/\d+$/;
+const moviePath = (value, base) => sitePath(value, movieRoute, base);
 const modelPath = (value, base) => {
   const path = sitePath(value, /^\/models\/[\p{L}\p{N}_-]+$/u, base),
     slug = path.split('/').at(-1);
@@ -79,7 +80,31 @@ const linked = (selector) => ({
   all: true,
   fields: { url: { attr: 'href' }, name: { text: true } },
 });
-const absolute = (value, page) => httpUrl(value, page)?.href ?? '';
+const imageCdn = /(?:^|\.)(?:vidb365\.com|pic\.vidd365\.com)$/i;
+function artwork(page, ...values) {
+  const origin = new URL(page).origin;
+  for (const value of values) {
+    const uri = httpUrl(value, page);
+    if (!uri || uri.hash) continue;
+    if (uri.origin === origin) return uri.href;
+    if (!uri.port && imageCdn.test(uri.hostname)) return uri.href.replace(/^http:/, 'https:');
+  }
+  return '';
+}
+function mp4Url(value) {
+  const file = text(value);
+  const uri = httpUrl(file.startsWith('//') ? 'https:' + file : file);
+  return uri?.protocol === 'https:' &&
+    !uri.port &&
+    !uri.hash &&
+    /(?:^|\.)(?:vide365\.com|vidb365\.com)$/i.test(uri.hostname) &&
+    /\.mp4$/i.test(uri.pathname)
+    ? uri.href
+    : '';
+}
+const canRetry = (error) =>
+  ['network', 'offline', 'timeout', 'not_found'].includes(error?.code) ||
+  (error?.code === 'invalid_response' && (error.httpStatus === 410 || error.httpStatus >= 500));
 const titleTags = (value) =>
   [
     ...new Set(
@@ -93,7 +118,7 @@ function card(row, page, base, playable = false) {
   const path = moviePath(row.url, base),
     title = first(row.image?.alt, row.title, path.split('/').at(-1));
   if (!path || !title) return null;
-  const poster = absolute(row.image?.lazy, page) || absolute(row.image?.src, page);
+  const poster = artwork(page, row.image?.lazy, row.image?.src);
   const id = 'porno365-' + encodeURIComponent(path);
   const url = new URL('porno365://video');
   url.searchParams.set('path', path);
@@ -125,12 +150,15 @@ function card(row, page, base, playable = false) {
   };
 }
 export default function createSource(context) {
+  const entry = context.baseUrl.replace(/\/+$/, '');
+  const fallback = context.parameters?.fallbackBaseUrl;
   let current;
   async function configuration() {
     const override = (await context.settings.network()).baseUrl,
-      base = (override || context.baseUrl).replace(/\/+$/, '');
-    if (current?.base !== base)
-      current = { base, active: base, filters: null, overridden: Boolean(override) };
+      base = (override || entry).replace(/\/+$/, ''),
+      overridden = Boolean(override);
+    if (current?.base !== base || current.overridden !== overridden)
+      current = { base, active: base, filters: null, overridden };
     return current;
   }
   async function get(scope, path, start = scope.active) {
@@ -141,6 +169,7 @@ export default function createSource(context) {
         url,
         responseType: 'text',
         userAgentProfile: 'browser',
+        timeoutMs: 6500,
         headers: { Accept: 'text/html', Referer: base + '/', Origin: new URL(base).origin },
       });
       const page = httpUrl(response.url || url);
@@ -148,24 +177,24 @@ export default function createSource(context) {
         throw fail('Porno365 mirror redirected outside its site origins', 'network');
       const suffix = new URL(path, 'https://catalog.invalid').pathname.replace(/\/+$/, '');
       const pathname = page.pathname.replace(/\/+$/, '');
-      const prefix = pathname.endsWith(suffix)
-        ? pathname.slice(0, pathname.length - suffix.length)
-        : '';
+      const preservesPath = pathname.endsWith(suffix);
+      if (movieRoute.test(suffix) && !preservesPath)
+        throw fail('Porno365 mirror returned a different video page', 'not_found');
+      const prefix = preservesPath ? pathname.slice(0, pathname.length - suffix.length) : '';
       scope.active = page.origin + prefix;
       return { html: text(response.body), page: page.href, base: scope.active };
     };
-    try {
-      return await request(start);
-    } catch (error) {
-      if (
-        start === scope.base ||
-        start !== scope.active ||
-        !(['network', 'offline', 'timeout'].includes(error?.code) || error?.httpStatus >= 500)
-      )
-        throw error;
-      // Re-discover a rotated mirror through the user's configured entry URL.
-      return request(scope.base);
+    // A stale override can rotate too. Preserve the route when returning to the
+    // stable entry URL or the known direct mirror.
+    const candidates = [...new Set([start, scope.base, entry, fallback].filter(Boolean))];
+    for (const base of candidates.slice(0, -1)) {
+      try {
+        return await request(base);
+      } catch (error) {
+        if (!canRetry(error)) throw error;
+      }
     }
+    return request(candidates.at(-1));
   }
   async function getFilters({ refresh = false } = {}) {
     const scope = await configuration();
@@ -318,7 +347,7 @@ export default function createSource(context) {
         }),
       );
     const title = first(data.title, data.heading, path.split('/').at(-1)),
-      poster = absolute(data.poster, page),
+      poster = artwork(page, data.poster),
       iso = /PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/.exec(text(data.iso));
     const duration =
         Number(data.duration) ||
@@ -406,18 +435,11 @@ export default function createSource(context) {
         }),
       ),
       headers = { Referer: page, Origin: new URL(page).origin };
-    const allowedStream = (value) => {
-      const uri = httpUrl(value);
-      return (
-        uri &&
-        uri.protocol === 'https:' &&
-        !uri.port &&
-        /(?:^|\.)(?:vide365\.com|vidb365\.com)$/i.test(uri.hostname)
-      );
-    };
-    const rows = array(literalProperty(html, 'sources')).filter((row) => allowedStream(row?.file));
-    const fallback = first(data.og, data.content);
-    if (!rows.length && allowedStream(fallback)) rows.push({ file: fallback });
+    const rows = array(literalProperty(html, 'sources'))
+      .map((row) => ({ ...row, file: mp4Url(row?.file) }))
+      .filter((row) => row.file);
+    const metadataStream = mp4Url(data.og) || mp4Url(data.content);
+    if (!rows.length && metadataStream) rows.push({ file: metadataStream });
     const variants = dedupe(
       rows.map((v) => ({
         quality:
